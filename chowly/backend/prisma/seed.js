@@ -5,21 +5,18 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("Seeding Chowly database...");
+  // Safe to run on every server start: if the restaurant already exists, the
+  // database has already been seeded, so we skip straight past instead of
+  // wiping live orders/payments. This matters because the free Render plan
+  // doesn't include Shell access, so seeding instead runs automatically as
+  // part of the start command every time the service boots.
+  const existing = await prisma.restaurant.findFirst();
+  if (existing) {
+    console.log("Database already seeded (restaurant ID", existing.id, "found). Skipping.");
+    return;
+  }
 
-  // Clear existing data (safe for re-seeding a demo environment)
-  await prisma.feedback.deleteMany();
-  await prisma.payment.deleteMany();
-  await prisma.orderItem.deleteMany();
-  await prisma.order.deleteMany();
-  await prisma.visit.deleteMany();
-  await prisma.menuItem.deleteMany();
-  await prisma.menuCategory.deleteMany();
-  await prisma.waiter.deleteMany();
-  await prisma.chef.deleteMany();
-  await prisma.bartender.deleteMany();
-  await prisma.customer.deleteMany();
-  await prisma.restaurant.deleteMany();
+  console.log("Seeding Chowly database for the first time...");
 
   const restaurant = await prisma.restaurant.create({
     data: {
