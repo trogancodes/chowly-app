@@ -9,10 +9,14 @@ function formatNaira(amount) {
   return `₦${amount.toLocaleString()}`;
 }
 
+const WAITER_KEY = "chowly_waiter_id_v1";
+
 export default function WaiterDashboard() {
   const navigate = useNavigate();
   const { restaurant } = useSession();
   const [orders, setOrders] = useState([]);
+  const [waiters, setWaiters] = useState([]);
+  const [waiterId, setWaiterId] = useState(() => localStorage.getItem(WAITER_KEY) || "");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [acceptingId, setAcceptingId] = useState(null);
@@ -34,17 +38,28 @@ export default function WaiterDashboard() {
       return;
     }
     load();
+    api.getStaff(restaurant.id).then((staff) => setWaiters(staff.waiters)).catch(() => {});
     // Poll for newly placed orders every 10s so the floor doesn't have to refresh manually.
     const interval = setInterval(load, 10000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurant]);
 
+  function handleWaiterChange(id) {
+    setWaiterId(id);
+    if (id) localStorage.setItem(WAITER_KEY, id);
+    else localStorage.removeItem(WAITER_KEY);
+  }
+
   async function handleAccept(orderId) {
+    if (!waiterId) {
+      setError("Please select who you are before accepting an order.");
+      return;
+    }
     setAcceptingId(orderId);
     setError("");
     try {
-      await api.acceptOrder(orderId, null);
+      await api.acceptOrder(orderId, waiterId);
       // Take the waiter straight into the order to assign a chef/bartender next.
       navigate(`/waiter/order/${orderId}`);
     } catch (err) {
@@ -61,6 +76,22 @@ export default function WaiterDashboard() {
       <main className="mx-auto max-w-2xl px-6 pb-24 pt-8">
         <h1 className="text-3xl text-ink md:text-4xl">The floor</h1>
         <p className="mt-1 text-ink/60">Orders waiting for a waiter to accept them.</p>
+
+        <div className="mt-5">
+          <label className="mb-1 block text-sm font-medium text-ink/70">Who are you?</label>
+          <select
+            value={waiterId}
+            onChange={(e) => handleWaiterChange(e.target.value)}
+            className="w-full rounded-2xl border border-clay bg-white/70 px-4 py-2.5 text-ink"
+          >
+            <option value="">Select your name...</option>
+            {waiters.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.fullName}
+              </option>
+            ))}
+          </select>
+        </div>
 
         <div className="mt-6">
           {loading && <Loader label="Checking for new orders..." />}
