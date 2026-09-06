@@ -8,6 +8,8 @@ to see incoming orders, record who prepared them, and mark them served.
 Built on the entity model in `CHOWLY ENTITY RELATIONSHIP MODEL.pdf`, with three
 documented adaptations — see **Changes from the original model** below.
 
+A quick one to note. This was deployed on render hence duriong a cold start of the web app you get directed to a render interface for a while before it spins up the application and directs you to chowly. 
+
 ## Stack
 
 - **Frontend:** React (Vite) + Tailwind CSS + Framer Motion — deployed to Render as a Static Site
