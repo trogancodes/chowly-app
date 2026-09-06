@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-export default function CartPayment({ totalAmount = 3500, orderId = "25", tableNumber = "7", onComplete }) {
+export default function CartPayment({ totalAmount = 3500, orderId = "25", tableNumber = "7" }) {
+  const navigate = useNavigate();
   const [selectedMethod, setSelectedMethod] = useState('cash');
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
 
@@ -11,8 +13,8 @@ export default function CartPayment({ totalAmount = 3500, orderId = "25", tableN
   if (paymentSubmitted) {
     return (
       <div className="min-h-screen bg-appBg flex items-center justify-center p-4">
-        {/* Payment Confirmation Modal (Photo 9 Logic) */}
-        <div className="bg-surface w-full max-w-md rounded-4xl p-8 shadow-framer-modal text-center border border-white/60">
+        {/* Payment Confirmation Modal */}
+        <div className="bg-surface w-full max-w-md rounded-4xl p-8 shadow-framer text-center border border-white/60">
           <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/30">
             <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
@@ -44,10 +46,10 @@ export default function CartPayment({ totalAmount = 3500, orderId = "25", tableN
           </div>
 
           <button 
-            onClick={onComplete}
+            onClick={() => navigate('/order-status')} 
             className="w-full py-4 bg-brand text-white font-bold rounded-2xl shadow-glow hover:bg-brand-dark transition-all"
           >
-            Done
+            Track Order
           </button>
         </div>
       </div>
@@ -74,11 +76,10 @@ export default function CartPayment({ totalAmount = 3500, orderId = "25", tableN
         </div>
       </div>
 
-      {/* Payment Options (Photos 8 & 12) */}
+      {/* Payment Options */}
       <div className="space-y-4 mb-8">
         <h3 className="font-bold text-gray-800 text-sm">Payment Method</h3>
 
-        {/* Cash Option */}
         <div 
           onClick={() => setSelectedMethod('cash')}
           className={`p-5 rounded-3xl bg-surface shadow-framer cursor-pointer border-2 transition-all flex items-start gap-4 ${
@@ -92,7 +93,6 @@ export default function CartPayment({ totalAmount = 3500, orderId = "25", tableN
           </div>
         </div>
 
-        {/* Bank Transfer Option */}
         <div 
           onClick={() => setSelectedMethod('bank')}
           className={`p-5 rounded-3xl bg-surface shadow-framer cursor-pointer border-2 transition-all flex items-start gap-4 ${
@@ -106,7 +106,6 @@ export default function CartPayment({ totalAmount = 3500, orderId = "25", tableN
           </div>
         </div>
 
-        {/* Demo Payment */}
         <div 
           onClick={() => setSelectedMethod('pretend')}
           className={`p-5 rounded-3xl bg-surface shadow-framer cursor-pointer border-2 transition-all flex items-start gap-4 ${

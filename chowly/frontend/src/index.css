@@ -2,25 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  margin: 0;
-  background-color: #e0f2fe;
-  color: #1e293b;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
-  -webkit-font-smoothing: antialiased;
+:root {
+  --brand: #c2185b;
+  --bg-color: #e0f2fe;
 }
 
-/* Custom framer-style scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
+html, body, #root {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  background-color: var(--bg-color); /* Strictly enforces #e0f2fe */
+  color: #1e293b;
+  font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+
+/* Framer-style abstract background illustrations (Soft glowing blobs) */
+body::before, body::after {
+  content: '';
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(100px);
+  z-index: -1;
+  opacity: 0.4;
+  animation: float 10s ease-in-out infinite alternate;
 }
-::-webkit-scrollbar-thumb {
-  background: rgba(194, 24, 91, 0.2);
-  border-radius: 9999px;
+
+body::before {
+  top: -10%;
+  left: -10%;
+  width: 50vw;
+  height: 50vw;
+  background: radial-gradient(circle, rgba(194,24,91,0.2) 0%, rgba(224,242,254,0) 70%);
 }
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(194, 24, 91, 0.4);
+
+body::after {
+  bottom: -10%;
+  right: -10%;
+  width: 40vw;
+  height: 40vw;
+  background: radial-gradient(circle, rgba(194,24,91,0.15) 0%, rgba(224,242,254,0) 70%);
+  animation-delay: -5s;
+}
+
+@keyframes float {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(30px, 50px) scale(1.1); }
 }

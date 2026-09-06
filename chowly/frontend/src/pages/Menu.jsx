@@ -1,135 +1,89 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import NavBar from "../components/NavBar.jsx";
-import Button from "../components/Button.jsx";
-import { Loader, ErrorNote } from "../components/Misc.jsx";
-import { FoodIcon } from "../illustrations/foodIcons.jsx";
-import { useSession } from "../context/SessionContext.jsx";
-import { api } from "../api.js";
+import React from 'react';
+import { motion } from 'framer-motion';
 
-function formatNaira(amount) {
-  return `₦${amount.toLocaleString()}`;
-}
+// Spring physics config for that signature Framer bounce
+const spring = {
+  type: "spring",
+  stiffness: 300,
+  damping: 24
+};
+
+// Staggered list animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20, scale: 0.95 },
+  show: { opacity: 1, y: 0, scale: 1, transition: spring }
+};
+
+const MENU_ITEMS = [
+  { id: 1, name: "Beef Suya Skewers", price: 3500, category: "Popular", icon: "🍢" },
+  { id: 2, name: "Chilled Zobo Drink", price: 1000, category: "Drinks", icon: "🍷" },
+  { id: 3, name: "Egusi & Pounded Yam", price: 5500, category: "Food", icon: "🍲" },
+];
 
 export default function Menu() {
-  const navigate = useNavigate();
-  const { session, restaurant, cart, addToCart, updateQuantity } = useSession();
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!restaurant) {
-      navigate("/");
-      return;
-    }
-    if (!session) {
-      navigate("/customer/start");
-      return;
-    }
-    api
-      .getMenu(restaurant.id)
-      .then(setCategories)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [session, restaurant, navigate]);
-
-  const cartCount = cart.reduce((sum, i) => sum + i.quantity, 0);
-  const cartTotal = cart.reduce((sum, i) => sum + i.quantity * i.price, 0);
-
-  function quantityFor(menuItemId) {
-    return cart.find((i) => i.menuItemId === menuItemId)?.quantity || 0;
-  }
-
   return (
-    <div className="min-h-screen bg-cream pb-32">
-      <NavBar cartCount={cartCount} variant="customer" />
-      <main className="mx-auto max-w-3xl px-6">
-        <h1 className="text-3xl text-ink md:text-4xl">
-          Hi {session?.fullName?.split(" ")[0]}, what looks good tonight?
-        </h1>
-        <p className="mt-2 text-ink/70">Tap an item to add it. You can change quantities any time before you order.</p>
+    <div className="min-h-screen p-4 md:p-6 max-w-xl mx-auto pb-24">
+      
+      {/* Header with SVG Illustration & Animation */}
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={spring}
+        className="bg-surface rounded-4xl p-8 mb-8 shadow-framer relative overflow-hidden text-center border border-white/60"
+      >
+        {/* Decorative Abstract SVG Illustration */}
+        <svg className="absolute -top-10 -right-10 w-40 h-40 text-brand/5 rotate-12" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <path fill="currentColor" d="M44.7,-76.4C58.8,-69.2,71.8,-59.1,81.3,-46.3C90.8,-33.5,96.8,-18,97.2,-2.4C97.6,13.2,92.5,28.9,82.4,41.4C72.3,53.9,57.1,63.1,41.6,69.5C26.1,75.9,10.3,79.5,-5.2,80.7C-20.7,81.9,-35.9,80.6,-50.2,74.1C-64.5,67.6,-77.9,55.9,-86.3,41.4C-94.7,26.9,-98.1,9.6,-95.6,-6.6C-93.1,-22.8,-84.7,-37.9,-73.4,-49.5C-62.1,-61.1,-47.9,-69.2,-33.9,-76.5C-19.9,-83.8,-6.1,-90.3,7.4,-92C20.9,-93.7,40.1,-90.6,44.7,-76.4Z" transform="translate(100 100)" />
+        </svg>
 
-        {loading && <Loader label="Bringing up the menu..." />}
-        <ErrorNote message={error} />
+        <h1 className="text-3xl font-black text-gray-900 mb-2 relative z-10">Menu</h1>
+        <p className="text-gray-500 text-sm relative z-10">Browse dishes, drinks, or categories...</p>
+      </motion.div>
 
-        {categories.map((category) => (
-          <section key={category.id} className="mt-10">
-            <h2 className="text-2xl text-terracotta">{category.categoryName}</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              {category.menuItems.map((item) => {
-                const qty = quantityFor(item.id);
-                return (
-                  <motion.div
-                    key={item.id}
-                    whileHover={{ y: -2 }}
-                    className="flex flex-col justify-between rounded-chowly border border-clay bg-white/50 p-5"
-                  >
-                    <div className="flex gap-4">
-                      <FoodIcon itemName={item.itemName} categoryName={category.categoryName} size={56} />
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between gap-3">
-                          <h3 className="font-display text-lg text-ink">{item.itemName}</h3>
-                          <span className="whitespace-nowrap font-semibold text-terracotta">
-                            {formatNaira(item.price)}
-                          </span>
-                        </div>
-                        {item.description && (
-                          <p className="mt-1 text-sm text-ink/60">{item.description}</p>
-                        )}
-                        <p className="mt-1 text-xs text-ink/40">~{item.avgPreparationTimeMins} min to prepare</p>
-                      </div>
-                    </div>
-
-                    <div className="mt-4">
-                      {qty === 0 ? (
-                        <Button variant="outline" onClick={() => addToCart(item)} className="w-full">
-                          Add to order
-                        </Button>
-                      ) : (
-                        <div className="flex items-center justify-between rounded-full border border-terracotta">
-                          <button
-                            onClick={() => updateQuantity(item.id, qty - 1)}
-                            className="px-4 py-2 text-terracotta"
-                            aria-label={`Remove one ${item.itemName}`}
-                          >
-                            –
-                          </button>
-                          <span className="font-semibold text-ink">{qty}</span>
-                          <button
-                            onClick={() => addToCart(item)}
-                            className="px-4 py-2 text-terracotta"
-                            aria-label={`Add one more ${item.itemName}`}
-                          >
-                            +
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                );
-              })}
+      {/* Animated Menu List */}
+      <motion.div 
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="space-y-4"
+      >
+        {MENU_ITEMS.map((item) => (
+          <motion.div
+            key={item.id}
+            variants={itemVariants}
+            whileHover={{ scale: 1.02, y: -4 }}
+            whileTap={{ scale: 0.98 }}
+            className="bg-surface p-5 rounded-3xl shadow-framer hover:shadow-framer-hover transition-shadow cursor-pointer flex items-center gap-4 border border-white/50"
+          >
+            <div className="w-14 h-14 bg-brand/10 rounded-2xl flex items-center justify-center text-2xl shadow-inner">
+              {item.icon}
             </div>
-          </section>
+            
+            <div className="flex-1">
+              <h3 className="font-bold text-gray-900 text-lg">{item.name}</h3>
+              <span className="text-xs font-semibold text-brand bg-brand/10 px-2 py-0.5 rounded-full">
+                {item.category}
+              </span>
+            </div>
+
+            <div className="text-right">
+              <p className="font-black text-brand text-lg">₦{item.price.toLocaleString()}</p>
+              <button className="mt-1 w-8 h-8 bg-appBg text-brand rounded-full font-bold flex items-center justify-center hover:bg-brand hover:text-white transition-colors">
+                +
+              </button>
+            </div>
+          </motion.div>
         ))}
-      </main>
+      </motion.div>
 
-      {cartCount > 0 && (
-        <motion.div
-          initial={{ y: 80, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="fixed inset-x-0 bottom-0 border-t border-clay bg-cream/95 backdrop-blur px-6 py-4"
-        >
-          <div className="mx-auto flex max-w-3xl items-center justify-between">
-            <div>
-              <p className="text-sm text-ink/60">{cartCount} item{cartCount > 1 ? "s" : ""}</p>
-              <p className="font-display text-xl text-ink">{formatNaira(cartTotal)}</p>
-            </div>
-            <Button onClick={() => navigate("/customer/cart")}>Review order</Button>
-          </div>
-        </motion.div>
-      )}
     </div>
   );
 }
