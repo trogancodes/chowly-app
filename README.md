@@ -1,1 +1,2 @@
 This app was deployed on render. Hence upon a cold start the application would display a render interface briefly before the chowly app can be seen.
+Also when you refresh a page it shows not found but do not panic as no data would be lost. To resolve this simply remove the / and all that comes after it leaving just the actual site link and click enter then navigate back to where you where and you can continue from where you stopped.
