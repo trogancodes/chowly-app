@@ -1,131 +1,110 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import NavBar from "../components/NavBar.jsx";
+import Button from "../components/Button.jsx";
+import { ErrorNote } from "../components/Misc.jsx";
+import { useSession } from "../context/SessionContext.jsx";
+import { api } from "../api.js";
 
-export default function CartPayment({ totalAmount = 3500, orderId = "25", tableNumber = "7" }) {
+function formatNaira(amount) {
+  return `₦${amount.toLocaleString()}`;
+}
+
+export default function Cart() {
   const navigate = useNavigate();
-  const [selectedMethod, setSelectedMethod] = useState('cash');
-  const [paymentSubmitted, setPaymentSubmitted] = useState(false);
+  const { session, cart, updateQuantity, clearCart } = useSession();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handlePaymentSubmit = () => {
-    setPaymentSubmitted(true);
-  };
+  const cartCount = cart.reduce((sum, i) => sum + i.quantity, 0);
+  const total = cart.reduce((sum, i) => sum + i.quantity * i.price, 0);
 
-  if (paymentSubmitted) {
-    return (
-      <div className="min-h-screen bg-appBg flex items-center justify-center p-4">
-        {/* Payment Confirmation Modal */}
-        <div className="bg-surface w-full max-w-md rounded-4xl p-8 shadow-framer text-center border border-white/60">
-          <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/30">
-            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
+  async function handlePlaceOrder() {
+    setError("");
+    setLoading(true);
+    try {
+      const order = await api.placeOrder(
+        session.visitId,
+        cart.map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity }))
+      );
+      clearCart();
+      navigate(`/customer/order/${order.id}`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-          <h2 className="text-2xl font-black text-gray-900 mb-2">Payment Submitted</h2>
-          <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-            Your cash payment has been submitted. Your waiter will confirm it before the order is completed.
-          </p>
-
-          <div className="bg-amber-50/60 border border-amber-200/60 rounded-2xl p-4 text-left mb-8 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Order</span>
-              <span className="font-bold text-gray-900">#{orderId}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Payment method</span>
-              <span className="font-bold text-gray-900 capitalize">{selectedMethod}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Amount</span>
-              <span className="font-bold text-brand">₦{totalAmount.toLocaleString()}</span>
-            </div>
-            <div className="pt-2 flex items-center gap-2 text-xs font-semibold text-amber-700">
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-              Waiting for waiter confirmation
-            </div>
-          </div>
-
-          <button 
-            onClick={() => navigate('/order-status')} 
-            className="w-full py-4 bg-brand text-white font-bold rounded-2xl shadow-glow hover:bg-brand-dark transition-all"
-          >
-            Track Order
-          </button>
-        </div>
-      </div>
-    );
+  if (!session) {
+    navigate("/customer/start");
+    return null;
   }
 
   return (
-    <div className="min-h-screen bg-appBg p-4 md:p-6 max-w-md mx-auto">
-      <h2 className="text-2xl font-black text-gray-900 mb-6">Payment</h2>
+    <div className="min-h-screen bg-cream">
+      <NavBar cartCount={cartCount} variant="customer" />
+      <main className="mx-auto max-w-2xl px-6 pb-24">
+        <h1 className="text-3xl text-ink md:text-4xl">Your order so far</h1>
 
-      {/* Summary Card */}
-      <div className="bg-surface p-5 rounded-3xl shadow-framer mb-6 space-y-2 border border-white/60">
-        <div className="flex justify-between text-sm text-gray-500">
-          <span>Order</span>
-          <span className="font-bold text-gray-900">#{orderId}</span>
-        </div>
-        <div className="flex justify-between text-sm text-gray-500">
-          <span>Table</span>
-          <span className="font-bold text-gray-900">Table {tableNumber}</span>
-        </div>
-        <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-100">
-          <span>Total</span>
-          <span className="text-brand">₦{totalAmount.toLocaleString()}</span>
-        </div>
-      </div>
-
-      {/* Payment Options */}
-      <div className="space-y-4 mb-8">
-        <h3 className="font-bold text-gray-800 text-sm">Payment Method</h3>
-
-        <div 
-          onClick={() => setSelectedMethod('cash')}
-          className={`p-5 rounded-3xl bg-surface shadow-framer cursor-pointer border-2 transition-all flex items-start gap-4 ${
-            selectedMethod === 'cash' ? 'border-brand bg-brand/5' : 'border-transparent'
-          }`}
-        >
-          <div className="p-3 bg-brand/10 text-brand rounded-2xl text-xl">💵</div>
-          <div>
-            <h4 className="font-bold text-gray-900">Cash</h4>
-            <p className="text-xs text-gray-500 mt-0.5">Pay cash to your waiter. Your waiter will confirm receipt.</p>
+        {cart.length === 0 ? (
+          <div className="mt-10 rounded-chowly border border-clay bg-white/50 p-8 text-center">
+            <p className="text-ink/70">Your cart is empty.</p>
+            <Button variant="outline" className="mt-4" onClick={() => navigate("/customer/menu")}>
+              Back to the menu
+            </Button>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="mt-8 divide-y divide-clay rounded-chowly border border-clay bg-white/50">
+              {cart.map((item) => (
+                <div key={item.menuItemId} className="flex items-center justify-between px-5 py-4">
+                  <div>
+                    <p className="font-display text-lg text-ink">{item.itemName}</p>
+                    <p className="text-sm text-ink/60">{formatNaira(item.price)} each</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center rounded-full border border-terracotta">
+                      <button
+                        onClick={() => updateQuantity(item.menuItemId, item.quantity - 1)}
+                        className="px-3 py-1 text-terracotta"
+                      >
+                        –
+                      </button>
+                      <span className="px-2 font-semibold">{item.quantity}</span>
+                      <button
+                        onClick={() => updateQuantity(item.menuItemId, item.quantity + 1)}
+                        className="px-3 py-1 text-terracotta"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <span className="w-20 text-right font-semibold text-ink">
+                      {formatNaira(item.price * item.quantity)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-        <div 
-          onClick={() => setSelectedMethod('bank')}
-          className={`p-5 rounded-3xl bg-surface shadow-framer cursor-pointer border-2 transition-all flex items-start gap-4 ${
-            selectedMethod === 'bank' ? 'border-brand bg-brand/5' : 'border-transparent'
-          }`}
-        >
-          <div className="p-3 bg-appBg text-brand rounded-2xl text-xl">🏦</div>
-          <div>
-            <h4 className="font-bold text-gray-900">Bank Transfer</h4>
-            <p className="text-xs text-gray-500 mt-0.5">Transfer the amount and wait for your waiter to verify it.</p>
-          </div>
-        </div>
+            <div className="mt-6 flex items-center justify-between text-lg">
+              <span className="text-ink/70">Total</span>
+              <span className="font-display text-2xl text-terracotta">{formatNaira(total)}</span>
+            </div>
 
-        <div 
-          onClick={() => setSelectedMethod('pretend')}
-          className={`p-5 rounded-3xl bg-surface shadow-framer cursor-pointer border-2 transition-all flex items-start gap-4 ${
-            selectedMethod === 'pretend' ? 'border-brand bg-brand/5' : 'border-transparent'
-          }`}
-        >
-          <div className="p-3 bg-appBg text-brand rounded-2xl text-xl">💳</div>
-          <div>
-            <h4 className="font-bold text-gray-900">Pretend Payment</h4>
-            <p className="text-xs text-gray-500 mt-0.5">Demo payment for testing. No real money is charged.</p>
-          </div>
-        </div>
-      </div>
+            <ErrorNote message={error} />
 
-      <button 
-        onClick={handlePaymentSubmit}
-        className="w-full py-4 bg-brand hover:bg-brand-dark text-white font-bold rounded-2xl shadow-glow transition-all"
-      >
-        Submit Payment • ₦{totalAmount.toLocaleString()}
-      </button>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Button variant="ghost" onClick={() => navigate("/customer/menu")}>
+                Add more items
+              </Button>
+              <Button onClick={handlePlaceOrder} disabled={loading} className="flex-1">
+                {loading ? "Sending to the kitchen..." : "Place order"}
+              </Button>
+            </div>
+          </>
+        )}
+      </main>
     </div>
   );
 }

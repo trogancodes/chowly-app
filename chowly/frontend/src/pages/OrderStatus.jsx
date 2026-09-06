@@ -1,157 +1,335 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import NavBar from "../components/NavBar.jsx";
+import Button from "../components/Button.jsx";
+import { Loader, ErrorNote, StatusBadge } from "../components/Misc.jsx";
+import { ReceiptIllustration, StarRating } from "../illustrations/index.jsx";
+import { useSession } from "../context/SessionContext.jsx";
+import { api } from "../api.js";
 
-const STAGES = [
-  { id: 1, label: 'Placed' },
-  { id: 2, label: 'Accepted' },
-  { id: 3, label: 'Preparing' },
-  { id: 4, label: 'Served' },
-  { id: 5, label: 'Payment' },
-  { id: 6, label: 'Completed' },
-];
+function formatNaira(amount) {
+  return `₦${amount.toLocaleString()}`;
+}
 
-export default function OrderStatus({ orders = [], notifications = [], onClearNotifications }) {
-  const [showNotifications, setShowNotifications] = useState(false);
+// A small filled/outline circle used in the tracker timeline.
+function StepDot({ done, current }) {
+  return (
+    <div
+      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 ${
+        done
+          ? "border-terracotta bg-terracotta text-cream"
+          : current
+          ? "border-terracotta text-terracotta"
+          : "border-clay text-ink/30"
+      }`}
+    >
+      {done ? (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
+      ) : (
+        <span className="h-2 w-2 rounded-full bg-current" />
+      )}
+    </div>
+  );
+}
+
+function OrderTracker({ order }) {
+  const hasFood = order.orderItems.some((i) => i.menuItem.category?.categoryName === "Food");
+  const hasDrinks = order.orderItems.some((i) => i.menuItem.category?.categoryName === "Drinks");
+  const notDelayed = order.status !== "DELAYED";
+
+  const steps = [
+    { key: "placed", label: "Order placed", detail: null, done: true },
+    {
+      key: "accepted",
+      label: "Accepted by your waiter",
+      detail: order.waiter ? order.waiter.fullName : null,
+      done: notDelayed && !["PENDING"].includes(order.status),
+    },
+  ];
+  if (hasFood) {
+    steps.push({
+      key: "chef",
+      label: "Chef preparing your food",
+      detail: order.chef ? `${order.chef.fullName} · ~${order.estimatedWaitTimeMins} min` : null,
+      done: !!order.chefId,
+    });
+  }
+  if (hasDrinks) {
+    steps.push({
+      key: "bartender",
+      label: "Bartender preparing your drinks",
+      detail: order.bartender ? order.bartender.fullName : null,
+      done: !!order.bartenderId,
+    });
+  }
+  steps.push({
+    key: "served",
+    label: "Served to your table",
+    detail: null,
+    done: notDelayed && ["SERVED", "COMPLETED"].includes(order.status),
+  });
+  steps.push({
+    key: "paid",
+    label: "Payment received",
+    detail: order.payment ? `${formatNaira(order.payment.amount)} via ${order.payment.paymentMethod}` : null,
+    done: !!order.payment,
+  });
+
+  const currentIndex = steps.findIndex((s) => !s.done);
 
   return (
-    <div className="min-h-screen bg-appBg p-4 md:p-6 max-w-xl mx-auto pb-24">
-      {/* Top Header */}
-      <div className="flex items-center justify-between mb-6 bg-surface p-4 rounded-3xl shadow-framer">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-brand/10 flex items-center justify-center text-brand font-bold text-xl">
-            🍴
-          </div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Chowly</h1>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Notifications Button */}
-          <div className="relative">
-            <button 
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="p-3 bg-appBg hover:bg-brand/10 rounded-2xl transition-all relative"
-            >
-              <span className="text-xl">🔔</span>
-              {notifications.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-brand text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-glow">
-                  {notifications.length}
-                </span>
-              )}
-            </button>
-
-            {/* Notifications Dropdown (Photo 16 Logic) */}
-            {showNotifications && (
-              <div className="absolute right-0 mt-3 w-80 bg-surface rounded-3xl shadow-framer-modal p-5 z-50 border border-brand/10 animate-in fade-in slide-in-from-top-2">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-gray-900">Notifications</h3>
-                  <button 
-                    onClick={onClearNotifications}
-                    className="text-xs font-semibold text-brand hover:underline"
-                  >
-                    Clear all
-                  </button>
-                </div>
-                <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {notifications.map((n, i) => (
-                    <div key={i} className="p-3 rounded-2xl bg-appBg/50 flex gap-3 items-start border border-brand/5">
-                      <span className="text-brand mt-0.5">🔔</span>
-                      <div>
-                        <p className="text-xs font-medium text-gray-800 leading-snug">{n.message}</p>
-                        <span className="text-[10px] text-gray-400 mt-1 block">Order #{n.orderId}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+    <div className="mt-6 rounded-chowly border border-clay bg-white/50 p-6">
+      {steps.map((step, i) => (
+        <div key={step.key} className="flex gap-4">
+          <div className="flex flex-col items-center">
+            <StepDot done={step.done} current={i === currentIndex} />
+            {i < steps.length - 1 && (
+              <div className={`w-0.5 flex-1 ${step.done ? "bg-terracotta" : "bg-clay"}`} style={{ minHeight: 28 }} />
             )}
           </div>
-
-          <div className="w-10 h-10 bg-gray-900 text-white rounded-2xl flex items-center justify-center font-bold">
-            👤
+          <div className={`pb-6 ${step.done ? "text-ink" : "text-ink/40"}`}>
+            <p className="font-medium">{step.label}</p>
+            {step.detail && <p className="text-sm text-ink/60">{step.detail}</p>}
           </div>
         </div>
-      </div>
+      ))}
+    </div>
+  );
+}
 
-      {/* Orders List */}
-      <div className="space-y-5">
-        {orders.map((order) => {
-          const currentStage = order.stageIndex || 1; // 1 to 6
-          return (
-            <div key={order.id} className="bg-surface rounded-3xl p-6 shadow-framer border border-white/60">
-              <div className="flex justify-between items-center mb-5 pb-4 border-b border-gray-100">
-                <div>
-                  <span className="text-lg font-black text-gray-900">#{order.id}</span>
-                  <span className="ml-3 text-xs font-semibold text-brand bg-brand/10 px-3 py-1 rounded-full">
-                    ⏱️ {order.statusText || 'Order Placed'}
+export default function OrderStatus() {
+  const { orderId } = useParams();
+  const navigate = useNavigate();
+  const { session, endSession } = useSession();
+
+  const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [complaintText, setComplaintText] = useState("");
+  const [rating, setRating] = useState(0);
+  const [feedbackSent, setFeedbackSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [paymentMethod, setPaymentMethod] = useState("Card");
+  const [paid, setPaid] = useState(null);
+
+  const fetchOrder = useCallback(async () => {
+    try {
+      const data = await api.getOrder(orderId);
+      setOrder(data);
+      if (data.payment) setPaid(data.payment);
+      if (data.feedbacks?.length) setFeedbackSent(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [orderId]);
+
+  useEffect(() => {
+    fetchOrder();
+    const interval = setInterval(fetchOrder, 5000);
+    return () => clearInterval(interval);
+  }, [fetchOrder]);
+
+  async function handleFlagDelay() {
+    try {
+      const updated = await api.delayOrder(orderId);
+      setOrder(updated);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleSubmitFeedback(e) {
+    e.preventDefault();
+    if (!complaintText.trim() || rating === 0) {
+      setError("Please add a note and a rating.");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    try {
+      await api.submitFeedback({
+        orderId: order.id,
+        customerId: session.customerId,
+        complaintText: complaintText.trim(),
+        rating,
+      });
+      setFeedbackSent(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handlePay() {
+    setSubmitting(true);
+    setError("");
+    try {
+      const payment = await api.submitPayment({
+        orderId: order.id,
+        customerId: session.customerId,
+        paymentMethod,
+      });
+      setPaid(payment);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (!session) {
+    navigate("/customer/start");
+    return null;
+  }
+
+  const total = order?.orderItems?.reduce((sum, i) => sum + i.subTotal, 0) || 0;
+  const canFlagDelay = order && !["SERVED", "COMPLETED", "DELAYED"].includes(order.status);
+
+  return (
+    <div className="min-h-screen bg-cream">
+      <NavBar variant="customer" />
+      <main className="mx-auto max-w-2xl px-6 pb-24">
+        {loading && <Loader label="Fetching your order..." />}
+        <ErrorNote message={error} />
+
+        {order && !paid && (
+          <>
+            <div className="flex items-center justify-between">
+              <h1 className="text-3xl text-ink md:text-4xl">Order #{order.id}</h1>
+              <StatusBadge status={order.status} />
+            </div>
+
+            <OrderTracker order={order} />
+
+            <div className="mt-6 divide-y divide-clay rounded-chowly border border-clay bg-white/50">
+              {order.orderItems.map((item) => (
+                <div key={item.id} className="flex items-center justify-between px-5 py-4">
+                  <span className="text-ink">
+                    {item.quantity} × {item.menuItem.itemName}
                   </span>
+                  <span className="font-semibold text-ink">{formatNaira(item.subTotal)}</span>
                 </div>
-                <span className="text-xs font-medium text-gray-400">{order.timeAgo}</span>
+              ))}
+              <div className="flex items-center justify-between px-5 py-4">
+                <span className="font-semibold text-ink">Total</span>
+                <span className="font-display text-xl text-terracotta">{formatNaira(total)}</span>
               </div>
+            </div>
 
-              {/* 6-Step Stepper Timeline (Photos 13 & 15) */}
-              <div className="my-6 px-2">
-                <div className="flex items-center justify-between relative">
-                  <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 bg-gray-100 -z-0" />
-                  <div 
-                    className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-brand transition-all duration-500 -z-0" 
-                    style={{ width: `${((currentStage - 1) / (STAGES.length - 1)) * 100}%` }}
+            {/* Delay + feedback */}
+            {canFlagDelay && !feedbackSent && (
+              <button
+                onClick={handleFlagDelay}
+                className="mt-6 text-sm text-terracotta underline decoration-terracotta/40 underline-offset-4"
+              >
+                This is taking longer than expected
+              </button>
+            )}
+
+            <AnimatePresence>
+              {order.status === "DELAYED" && !feedbackSent && (
+                <motion.form
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  onSubmit={handleSubmitFeedback}
+                  className="mt-6 rounded-chowly border border-terracotta/30 bg-terracotta/5 p-5"
+                >
+                  <p className="font-display text-lg text-terracotta-dark">
+                    Sorry about the wait. Tell us what happened.
+                  </p>
+                  <textarea
+                    value={complaintText}
+                    onChange={(e) => setComplaintText(e.target.value)}
+                    placeholder="What went wrong?"
+                    className="mt-3 w-full rounded-2xl border border-clay bg-white/70 px-4 py-3 outline-none focus:border-terracotta"
+                    rows={3}
                   />
+                  <div className="mt-3 flex items-center gap-3">
+                    <span className="text-sm text-ink/70">Rate this order</span>
+                    <StarRating value={rating} onChange={setRating} className="w-6 h-6" />
+                  </div>
+                  <Button type="submit" disabled={submitting} className="mt-4">
+                    {submitting ? "Sending..." : "Submit feedback"}
+                  </Button>
+                </motion.form>
+              )}
+            </AnimatePresence>
 
-                  {STAGES.map((s) => {
-                    const isPassed = s.id <= currentStage;
-                    return (
-                      <div key={s.id} className="flex flex-col items-center relative z-10">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                          isPassed ? 'bg-brand text-white shadow-glow' : 'bg-gray-100 text-gray-400'
-                        }`}>
-                          {isPassed ? '✓' : s.id}
-                        </div>
-                      </div>
-                    );
-                  })}
+            {feedbackSent && (
+              <p className="mt-6 text-sm text-sage">Thanks — your feedback has been recorded.</p>
+            )}
+
+            {/* Payment */}
+            {(order.status === "SERVED" || order.status === "COMPLETED") && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-8 rounded-chowly border border-clay bg-white/50 p-6"
+              >
+                <div className="flex items-center gap-4">
+                  <ReceiptIllustration className="h-16 w-16 shrink-0" />
+                  <div>
+                    <h2 className="font-display text-xl text-ink">Ready to settle up?</h2>
+                    <p className="text-sm text-ink/60">This is a pretend payment for the assignment demo.</p>
+                  </div>
                 </div>
-                <div className="flex justify-between text-[10px] font-bold text-gray-400 mt-3 px-1">
-                  {STAGES.map((s) => (
-                    <span key={s.id} className={s.id <= currentStage ? 'text-brand font-semibold' : ''}>
-                      {s.label}
-                    </span>
+
+                <div className="mt-4 flex gap-2">
+                  {["Card", "Cash", "Transfer"].map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setPaymentMethod(m)}
+                      className={`rounded-full border px-4 py-2 text-sm ${
+                        paymentMethod === m
+                          ? "border-terracotta bg-terracotta text-cream"
+                          : "border-clay text-ink/70"
+                      }`}
+                    >
+                      {m}
+                    </button>
                   ))}
                 </div>
-              </div>
 
-              {/* Items & Chef Information */}
-              <div className="py-3 border-t border-gray-100 space-y-2">
-                {order.items.map((item, idx) => (
-                  <div key={idx} className="flex justify-between text-sm">
-                    <span className="font-semibold text-gray-800">
-                      <span className="text-brand mr-2">{item.qty}x</span>
-                      {item.name}
-                    </span>
-                    <span className="font-medium text-gray-500">₦{item.price.toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
+                <Button onClick={handlePay} disabled={submitting} className="mt-5 w-full">
+                  {submitting ? "Processing (pretend)..." : `Pay ${formatNaira(total)} (pretend)`}
+                </Button>
+              </motion.div>
+            )}
+          </>
+        )}
 
-              {order.chefName && (
-                <div className="mt-3 text-xs font-medium text-gray-600 bg-appBg/60 p-2.5 rounded-xl flex items-center gap-2">
-                  <span>👨‍🍳</span> Assigned Chef: <strong className="text-gray-900">{order.chefName}</strong>
-                </div>
-              )}
-
-              {/* Total & Confirmation Banner */}
-              <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
-                <span className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Order Total</span>
-                <span className="text-lg font-black text-brand">₦{order.total.toLocaleString()}</span>
-              </div>
-
-              {order.paymentStatus === 'pending_waiter' && (
-                <div className="mt-4 bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-2xl text-xs font-medium flex items-center gap-2">
-                  <span className="animate-pulse">🟠</span> Waiting for waiter payment confirmation
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+        {paid && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-10 flex flex-col items-center text-center"
+          >
+            <ReceiptIllustration className="h-24 w-24" />
+            <h1 className="mt-2 text-3xl text-ink">Payment recorded — pretend, of course</h1>
+            <p className="mt-2 text-ink/70">
+              {formatNaira(paid.amount)} via {paid.paymentMethod}. Your waiter has been notified and will
+              wrap up your table shortly. Thanks for dining with us tonight.
+            </p>
+            <Button
+              className="mt-8"
+              onClick={() => {
+                endSession();
+                navigate("/");
+              }}
+            >
+              Start a new visit
+            </Button>
+          </motion.div>
+        )}
+      </main>
     </div>
   );
 }

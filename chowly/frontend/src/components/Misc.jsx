@@ -20,15 +20,19 @@ export function ErrorNote({ message }) {
 
 const STATUS_STYLES = {
   PENDING: "bg-clay text-ink/70",
+  ACCEPTED: "bg-sage/15 text-sage",
   PREPARING: "bg-terracotta/15 text-terracotta-dark",
   SERVED: "bg-sage/20 text-sage",
+  COMPLETED: "bg-ink/10 text-ink/60",
   DELAYED: "bg-red-100 text-red-700",
 };
 
 const STATUS_LABELS = {
   PENDING: "Order received",
+  ACCEPTED: "Accepted by waiter",
   PREPARING: "Being prepared",
   SERVED: "Served",
+  COMPLETED: "Completed",
   DELAYED: "Delayed",
 };
 

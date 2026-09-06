@@ -1,29 +1,25 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ["./index.html", "./src/**/*.{js,jsx}"],
   theme: {
     extend: {
       colors: {
-        brand: {
-          DEFAULT: '#c2185b', // Raspberry
-          light: '#d81b60',
-          dark: '#9d1245',
-        },
-        appBg: '#e0f2fe',
-        surface: '#ffffff',
+        cream: "#F7EFE1",
+        "cream-dark": "#F0E4CE",
+        terracotta: "#C1502E",
+        "terracotta-dark": "#A8421F",
+        clay: "#E4D3B8",
+        ink: "#3A2A1C",
+        sage: "#748C69",
       },
-      boxShadow: {
-        'framer': '0 10px 40px -10px rgba(194, 24, 91, 0.12)',
-        'framer-hover': '0 20px 50px -12px rgba(194, 24, 91, 0.25)',
+      fontFamily: {
+        display: ["Fraunces", "Georgia", "serif"],
+        body: ["Inter", "system-ui", "sans-serif"],
       },
       borderRadius: {
-        '3xl': '1.75rem',
-        '4xl': '2.25rem',
-      }
+        chowly: "1.75rem",
+      },
     },
   },
   plugins: [],
-}
+};

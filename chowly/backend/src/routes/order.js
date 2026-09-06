@@ -1,161 +1,219 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require("../prisma");
 
-// Get all orders for the Waiter Order Table and Kitchen/Bar views
-router.get('/', async (req, res) => {
+const orderInclude = {
+  visit: { include: { customer: true, restaurant: true } },
+  orderItems: { include: { menuItem: { include: { category: true } } } },
+  waiter: true,
+  chef: true,
+  bartender: true,
+  payment: true,
+  feedbacks: true,
+};
+
+// POST /api/orders - a customer submits an order.
+// Body: { visitId, items: [{ menuItemId, quantity }] }
+// Computes the waiting time shown to the customer as the slowest item's prep time
+// plus a small kitchen-queue buffer, and creates one OrderItem row per line.
+router.post("/", async (req, res, next) => {
   try {
-    const orders = await prisma.order.findMany({
-      include: {
+    const { visitId, items } = req.body;
+    if (!visitId || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: "visitId and at least one item are required." });
+    }
+
+    const menuItems = await prisma.menuItem.findMany({
+      where: { id: { in: items.map((i) => i.menuItemId) } },
+    });
+    if (menuItems.length === 0) return res.status(400).json({ error: "No valid menu items found." });
+
+    const slowestPrep = Math.max(...menuItems.map((m) => m.avgPreparationTimeMins));
+    const estimatedWaitTimeMins = slowestPrep + 5; // kitchen-queue buffer
+
+    const order = await prisma.order.create({
+      data: {
+        visitId,
+        estimatedWaitTimeMins,
+        status: "PENDING",
         orderItems: {
-          include: { menuItem: true }
+          create: items.map((i) => {
+            const menuItem = menuItems.find((m) => m.id === i.menuItemId);
+            return {
+              menuItemId: i.menuItemId,
+              quantity: i.quantity,
+              subTotal: menuItem.price * i.quantity,
+            };
+          }),
         },
-        visit: {
-          include: { customer: true }
-        },
-        waiter: true,
-        chef: true,
-        bartender: true
       },
-      orderBy: { orderTime: 'desc' }
+      include: orderInclude,
+    });
+
+    res.status(201).json(order);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/orders - the waiter's order queue for one restaurant.
+// ?status=PENDING,PREPARING filters by status; ?restaurantId=1 is required.
+router.get("/", async (req, res, next) => {
+  try {
+    const { status, restaurantId } = req.query;
+    if (!restaurantId) return res.status(400).json({ error: "restaurantId query param is required." });
+
+    const where = {
+      visit: { restaurantId: parseInt(restaurantId, 10) },
+      ...(status ? { status: { in: status.split(",") } } : {}),
+    };
+    const orders = await prisma.order.findMany({
+      where,
+      include: orderInclude,
+      orderBy: { orderTime: "asc" },
     });
     res.json(orders);
-  } catch (error) {
-    console.error('Failed to fetch orders:', error);
-    res.status(500).json({ error: 'Failed to fetch orders' });
+  } catch (err) {
+    next(err);
   }
 });
 
-// Create a new order
-router.post('/', async (req, res) => {
-  const { visitId, tableNumber, items } = req.body; // items: [{ menuItemId, quantity, category, notes, subTotal }]
+// GET /api/orders/visit/:visitId - a customer's own orders (for their tracking screen)
+router.get("/visit/:visitId", async (req, res, next) => {
   try {
-    const newOrder = await prisma.order.create({
+    const orders = await prisma.order.findMany({
+      where: { visitId: parseInt(req.params.visitId, 10) },
+      include: orderInclude,
+      orderBy: { orderTime: "desc" },
+    });
+    res.json(orders);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/orders/:id
+router.get("/:id", async (req, res, next) => {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: parseInt(req.params.id, 10) },
+      include: orderInclude,
+    });
+    if (!order) return res.status(404).json({ error: "Order not found." });
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/orders/:id/accept - a waiter accepts a newly-placed order.
+// Body: { waiterId }
+// This is step 1 of the tracked flow the customer sees: "Accepted by waiter".
+router.patch("/:id/accept", async (req, res, next) => {
+  try {
+    const { waiterId } = req.body;
+    if (!waiterId) return res.status(400).json({ error: "waiterId is required." });
+    const order = await prisma.order.update({
+      where: { id: parseInt(req.params.id, 10) },
+      data: { waiterId: Number(waiterId), status: "ACCEPTED" },
+      include: orderInclude,
+    });
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/orders/:id/assign-chef - records which chef is preparing the food.
+// Body: { chefId }
+// Step 2 of the flow: "Chef preparing your food". Bumps ACCEPTED -> PREPARING.
+router.patch("/:id/assign-chef", async (req, res, next) => {
+  try {
+    const { chefId } = req.body;
+    if (!chefId) return res.status(400).json({ error: "chefId is required." });
+    const existing = await prisma.order.findUnique({ where: { id: parseInt(req.params.id, 10) } });
+    if (!existing) return res.status(404).json({ error: "Order not found." });
+
+    const order = await prisma.order.update({
+      where: { id: existing.id },
       data: {
-        visitId: parseInt(visitId),
-        status: 'PENDING',
-        paymentStatus: 'PENDING',
-        orderItems: {
-          create: items.map(item => ({
-            menuItemId: parseInt(item.menuItemId),
-            quantity: parseInt(item.quantity),
-            subTotal: parseFloat(item.subTotal),
-            category: item.category || 'food',
-            notes: item.notes || null
-          }))
-        }
+        chefId: Number(chefId),
+        status: existing.status === "ACCEPTED" ? "PREPARING" : existing.status,
       },
-      include: { orderItems: true }
+      include: orderInclude,
     });
-    res.status(201).json(newOrder);
-  } catch (error) {
-    console.error('Failed to create order:', error);
-    res.status(500).json({ error: 'Failed to create order' });
+    res.json(order);
+  } catch (err) {
+    next(err);
   }
 });
 
-// Waiter accepts order & assigns status
-router.patch('/:id/accept', async (req, res) => {
-  const orderId = parseInt(req.params.id);
-  const { waiterId } = req.body;
+// PATCH /api/orders/:id/assign-bartender - records which bartender is preparing the drinks.
+// Body: { bartenderId }
+// Step 3 of the flow: "Bartender preparing your drinks". Bumps ACCEPTED -> PREPARING.
+router.patch("/:id/assign-bartender", async (req, res, next) => {
   try {
-    const updatedOrder = await prisma.order.update({
-      where: { id: orderId },
+    const { bartenderId } = req.body;
+    if (!bartenderId) return res.status(400).json({ error: "bartenderId is required." });
+    const existing = await prisma.order.findUnique({ where: { id: parseInt(req.params.id, 10) } });
+    if (!existing) return res.status(404).json({ error: "Order not found." });
+
+    const order = await prisma.order.update({
+      where: { id: existing.id },
       data: {
-        status: 'ACCEPTED_BY_WAITER',
-        waiterId: waiterId ? parseInt(waiterId) : null
-      }
+        bartenderId: Number(bartenderId),
+        status: existing.status === "ACCEPTED" ? "PREPARING" : existing.status,
+      },
+      include: orderInclude,
     });
-    res.json(updatedOrder);
-  } catch (error) {
-    console.error('Failed to accept order:', error);
-    res.status(500).json({ error: 'Failed to accept order' });
+    res.json(order);
+  } catch (err) {
+    next(err);
   }
 });
 
-// Kitchen/Chef assigns order and sets estimated prep time
-router.patch('/:id/assign-chef', async (req, res) => {
-  const orderId = parseInt(req.params.id);
-  const { chefId, prepTime } = req.body; // prepTime in minutes
+// PATCH /api/orders/:id/serve - waiter marks the order as served
+router.patch("/:id/serve", async (req, res, next) => {
   try {
-    const updatedOrder = await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        status: 'ASSIGNED_TO_CHEF',
-        chefId: chefId ? parseInt(chefId) : null,
-        prepTime: prepTime ? parseInt(prepTime) : null
-      }
+    const order = await prisma.order.update({
+      where: { id: parseInt(req.params.id, 10) },
+      data: { status: "SERVED" },
+      include: orderInclude,
     });
-    res.json(updatedOrder);
-  } catch (error) {
-    console.error('Failed to assign chef and prep time:', error);
-    res.status(500).json({ error: 'Failed to assign chef and prep time' });
+    res.json(order);
+  } catch (err) {
+    next(err);
   }
 });
 
-// Bartender updates drink processing status
-router.patch('/:id/bartender-process', async (req, res) => {
-  const orderId = parseInt(req.params.id);
-  const { bartenderId } = req.body;
+// PATCH /api/orders/:id/complete - waiter closes out the table after payment.
+// This is the "finish attending to the customer" step: once the payment has come
+// through (or the waiter otherwise settles it), the order leaves the active queue.
+router.patch("/:id/complete", async (req, res, next) => {
   try {
-    const updatedOrder = await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        status: 'BARTENDER_PROCESSING',
-        bartenderId: bartenderId ? parseInt(bartenderId) : null
-      }
+    const order = await prisma.order.update({
+      where: { id: parseInt(req.params.id, 10) },
+      data: { status: "COMPLETED" },
+      include: orderInclude,
     });
-    res.json(updatedOrder);
-  } catch (error) {
-    console.error('Failed to update bartender status:', error);
-    res.status(500).json({ error: 'Failed to update bartender status' });
+    res.json(order);
+  } catch (err) {
+    next(err);
   }
 });
 
-// Waiter marks order as completed / finished attending
-router.patch('/:id/complete', async (req, res) => {
-  const orderId = parseInt(req.params.id);
+// PATCH /api/orders/:id/delay - flag a serious delay (waiter-triggered, or the customer's
+// complaint flow calls this before submitting feedback)
+router.patch("/:id/delay", async (req, res, next) => {
   try {
-    const updatedOrder = await prisma.order.update({
-      where: { id: orderId },
-      data: { status: 'COMPLETED' }
+    const order = await prisma.order.update({
+      where: { id: parseInt(req.params.id, 10) },
+      data: { status: "DELAYED" },
+      include: orderInclude,
     });
-    res.json(updatedOrder);
-  } catch (error) {
-    console.error('Failed to complete order:', error);
-    res.status(500).json({ error: 'Failed to complete order' });
-  }
-});
-
-// Payment webhook / update route to trigger waiter notification
-router.post('/:id/payment', async (req, res) => {
-  const orderId = parseInt(req.params.id);
-  const { paymentMethod, amount, customerId } = req.body;
-
-  try {
-    // Update order payment status and create payment record transaction
-    const [updatedOrder] = await prisma.$transaction([
-      prisma.order.update({
-        where: { id: orderId },
-        data: { paymentStatus: 'PAID' }
-      }),
-      prisma.payment.create({
-        data: {
-          orderId: orderId,
-          customerId: parseInt(customerId),
-          amount: parseFloat(amount),
-          paymentMethod: paymentMethod || 'Cash/Card',
-          paymentStatus: 'COMPLETED',
-          isPretend: true
-        }
-      })
-    ]);
-
-    res.json({ success: true, order: updatedOrder });
-  } catch (error) {
-    console.error('Payment processing failed:', error);
-    res.status(500).json({ error: 'Payment processing failed' });
+    res.json(order);
+  } catch (err) {
+    next(err);
   }
 });
 

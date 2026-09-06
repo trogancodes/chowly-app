@@ -1,5 +1,18 @@
 // Chowly data model
-// Fully integrated with multi-stage order workflow, waiter tracking, and payment statuses.
+// Implements the ER model from "CHOWLY ENTITY RELATIONSHIP MODEL" (Chiedozie Maduabuchi),
+// with three changes made during the build — each one explained in the project README
+// under "Changes from the original model":
+//
+// 1. No Login/Auth table. The brief says "logins are not required, a simple switch is
+//    enough", so a Customer row is created just by typing a name — no password/account.
+// 2. Visit gained a `tableNumber` field. The original model didn't need one because it
+//    wasn't tracking where in the restaurant an order came from — but a walk-in, no-login
+//    flow needs to know which physical table placed the order.
+// 3. Order.status is a proper enum (was a free-text VARCHAR) so the API and UI can rely on
+//    a fixed set of states: PENDING, ACCEPTED, PREPARING, SERVED, COMPLETED, DELAYED.
+//    (Expanded from the original 4 states to give the customer a real step-by-step
+//    tracker — accepted by waiter, then chef/bartender assigned, then served — and to
+//    give the waiter a "completed" state to close out a table after payment.)
 
 generator client {
   provider = "prisma-client-js"
@@ -12,58 +25,54 @@ datasource db {
 
 enum OrderStatus {
   PENDING
-  ACCEPTED_BY_WAITER
-  ASSIGNED_TO_CHEF
+  ACCEPTED
   PREPARING
-  BARTENDER_PROCESSING
-  READY
+  SERVED
   COMPLETED
-  CANCELLED
   DELAYED
 }
 
 enum PaymentStatus {
   PENDING
-  PAID
   COMPLETED
   FAILED
 }
 
 model Restaurant {
-  id           Int          @id @default(autoincrement())
-  name         String
-  address      String
-  phoneNumber  String
-  email        String
-  openingHours String
-  menuItems    MenuItem[]
-  waiters      Waiter[]
-  chefs        Chef[]
-  bartenders   Bartender[]
-  visits       Visit[]
-  createdAt    DateTime     @default(now())
+  id            Int         @id @default(autoincrement())
+  name          String
+  address       String
+  phoneNumber   String
+  email         String
+  openingHours  String
+  menuItems     MenuItem[]
+  waiters       Waiter[]
+  chefs         Chef[]
+  bartenders    Bartender[]
+  visits        Visit[]
+  createdAt     DateTime    @default(now())
 }
 
 model Customer {
-  id             Int          @id @default(autoincrement())
+  id             Int        @id @default(autoincrement())
   fullName       String
   phoneNumber    String?
-  dateRegistered DateTime     @default(now())
+  dateRegistered DateTime   @default(now())
   visits         Visit[]
   payments       Payment[]
   feedbacks      Feedback[]
 }
 
 model Visit {
-  id           Int        @id @default(autoincrement())
-  customer     Customer   @relation(fields: [customerId], references: [id])
-  customerId   Int
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
-  restaurantId Int
-  tableNumber  Int
-  checkInTime  DateTime   @default(now())
-  checkOutTime DateTime?
-  orders       Order[]
+  id            Int        @id @default(autoincrement())
+  customer      Customer   @relation(fields: [customerId], references: [id])
+  customerId    Int
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurantId  Int
+  tableNumber   Int
+  checkInTime   DateTime   @default(now())
+  checkOutTime  DateTime?
+  orders        Order[]
 }
 
 model MenuCategory {
@@ -73,17 +82,17 @@ model MenuCategory {
 }
 
 model MenuItem {
-  id                       Int          @id @default(autoincrement())
-  restaurant               Restaurant   @relation(fields: [restaurantId], references: [id])
-  restaurantId             Int
-  category                 MenuCategory @relation(fields: [categoryId], references: [id])
-  categoryId               Int
-  itemName                 String
-  description              String?
-  price                    Float
+  id                     Int          @id @default(autoincrement())
+  restaurant             Restaurant   @relation(fields: [restaurantId], references: [id])
+  restaurantId           Int
+  category               MenuCategory @relation(fields: [categoryId], references: [id])
+  categoryId             Int
+  itemName               String
+  description            String?
+  price                  Float
   avgPreparationTimeMins Int
-  isAvailable              Boolean      @default(true)
-  orderItems               OrderItem[]
+  isAvailable            Boolean      @default(true)
+  orderItems             OrderItem[]
 }
 
 model Waiter {
@@ -116,36 +125,31 @@ model Bartender {
 }
 
 model Order {
-  id                    Int           @id @default(autoincrement())
-  visit                 Visit         @relation(fields: [visitId], references: [id])
-  visitId               Int
-  waiter                Waiter?       @relation(fields: [waiterId], references: [id])
-  waiterId              Int?
-  chef                  Chef?         @relation(fields: [chefId], references: [id])
-  chefId                Int?
-  bartender             Bartender?    @relation(fields: [bartenderId], references: [id])
-  bartenderId           Int?
-  orderTime             DateTime      @default(now())
-  status                OrderStatus   @default(PENDING)
-  paymentStatus         PaymentStatus @default(PENDING)
-  prepTime              Int?          // Estimated prep time in minutes set by chef
-  estimatedWaitTimeMins Int?
-  orderItems            OrderItem[]
-  payment               Payment?
-  feedbacks             Feedback[]
-   updatedAt DateTime @default(now()) @updatedAt
+  id                   Int         @id @default(autoincrement())
+  visit                Visit       @relation(fields: [visitId], references: [id])
+  visitId              Int
+  waiter               Waiter?     @relation(fields: [waiterId], references: [id])
+  waiterId             Int?
+  chef                 Chef?       @relation(fields: [chefId], references: [id])
+  chefId               Int?
+  bartender            Bartender?  @relation(fields: [bartenderId], references: [id])
+  bartenderId          Int?
+  orderTime            DateTime    @default(now())
+  status               OrderStatus @default(PENDING)
+  estimatedWaitTimeMins Int
+  orderItems           OrderItem[]
+  payment              Payment?
+  feedbacks            Feedback[]
 }
 
 model OrderItem {
   id         Int      @id @default(autoincrement())
-  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order      Order    @relation(fields: [orderId], references: [id])
   orderId    Int
   menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
   menuItemId Int
   quantity   Int
   subTotal   Float
-  category   String?  // e.g., "food" or "drink" to route between chef and bartender
-  notes      String?
 }
 
 model Payment {

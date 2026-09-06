@@ -1,5 +1,8 @@
 // Central place for all calls to the Chowly API.
-const BASE_URL = import.meta.env.VITE_API_URL || "/api";
+// Set VITE_API_URL in a .env file (locally) or in Render's environment settings
+// (in production) to point at your deployed backend, e.g.
+// VITE_API_URL=https://chowly-api.onrender.com/api
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
 
 async function request(path, options = {}) {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -26,9 +29,14 @@ export const api = {
   getOrder: (orderId) => request(`/orders/${orderId}`),
   getWaiterOrders: (statuses, restaurantId) =>
     request(`/orders?status=${statuses.join(",")}&restaurantId=${restaurantId}`),
-  assignOrder: (orderId, payload) =>
-    request(`/orders/${orderId}/assign`, { method: "PATCH", body: JSON.stringify(payload) }),
+  acceptOrder: (orderId, waiterId) =>
+    request(`/orders/${orderId}/accept`, { method: "PATCH", body: JSON.stringify({ waiterId }) }),
+  assignChef: (orderId, chefId) =>
+    request(`/orders/${orderId}/assign-chef`, { method: "PATCH", body: JSON.stringify({ chefId }) }),
+  assignBartender: (orderId, bartenderId) =>
+    request(`/orders/${orderId}/assign-bartender`, { method: "PATCH", body: JSON.stringify({ bartenderId }) }),
   serveOrder: (orderId) => request(`/orders/${orderId}/serve`, { method: "PATCH" }),
+  completeOrder: (orderId) => request(`/orders/${orderId}/complete`, { method: "PATCH" }),
   delayOrder: (orderId) => request(`/orders/${orderId}/delay`, { method: "PATCH" }),
   submitFeedback: (payload) => request("/feedback", { method: "POST", body: JSON.stringify(payload) }),
   submitPayment: (payload) => request("/payments", { method: "POST", body: JSON.stringify(payload) }),
