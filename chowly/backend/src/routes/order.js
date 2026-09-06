@@ -123,7 +123,34 @@ router.patch("/:id/accept", async (req, res, next) => {
     next(err);
   }
 });
+// PATCH /api/orders/:id/assign - waiter updates waiter/chef/bartender together in one save.
+// Body: { waiterId?, chefId?, bartenderId? } - any field left out is unchanged.
+router.patch("/:id/assign", async (req, res, next) => {
+  try {
+    const { waiterId, chefId, bartenderId } = req.body;
+    const existing = await prisma.order.findUnique({ where: { id: parseInt(req.params.id, 10) } });
+    if (!existing) return res.status(404).json({ error: "Order not found." });
 
+    const data = {};
+    if (waiterId !== undefined) data.waiterId = waiterId ? Number(waiterId) : null;
+    if (chefId !== undefined) data.chefId = chefId ? Number(chefId) : null;
+    if (bartenderId !== undefined) data.bartenderId = bartenderId ? Number(bartenderId) : null;
+
+    // Assigning a chef or bartender while still just "accepted" moves the order into prep.
+    if (existing.status === "ACCEPTED" && (data.chefId || data.bartenderId)) {
+      data.status = "PREPARING";
+    }
+
+    const order = await prisma.order.update({
+      where: { id: existing.id },
+      data,
+      include: orderInclude,
+    });
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+});
 // PATCH /api/orders/:id/assign-chef - records which chef is preparing the food.
 // Body: { chefId }
 // Step 2 of the flow: "Chef preparing your food". Bumps ACCEPTED -> PREPARING.
