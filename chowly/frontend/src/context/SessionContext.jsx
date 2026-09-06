@@ -7,6 +7,7 @@ const SessionContext = createContext(null);
 
 const STORAGE_KEY = "chowly_session_v1";
 const CART_KEY = "chowly_cart_v1";
+const RESTAURANT_KEY = "chowly_restaurant_v1";
 
 export function SessionProvider({ children }) {
   const [session, setSession] = useState(() => {
@@ -17,6 +18,10 @@ export function SessionProvider({ children }) {
     const saved = localStorage.getItem(CART_KEY);
     return saved ? JSON.parse(saved) : [];
   });
+  const [restaurant, setRestaurantState] = useState(() => {
+    const saved = localStorage.getItem(RESTAURANT_KEY);
+    return saved ? JSON.parse(saved) : null;
+  });
 
   useEffect(() => {
     if (session) localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
@@ -26,6 +31,23 @@ export function SessionProvider({ children }) {
   useEffect(() => {
     localStorage.setItem(CART_KEY, JSON.stringify(cart));
   }, [cart]);
+
+  useEffect(() => {
+    if (restaurant) localStorage.setItem(RESTAURANT_KEY, JSON.stringify(restaurant));
+    else localStorage.removeItem(RESTAURANT_KEY);
+  }, [restaurant]);
+
+  function setRestaurant(r) {
+    setRestaurantState(r);
+  }
+
+  function changeRestaurant() {
+    // Switching restaurants mid-visit doesn't make sense (a table belongs to one
+    // restaurant), so clear the visit/cart along with the restaurant choice.
+    setRestaurantState(null);
+    setSession(null);
+    setCart([]);
+  }
 
   function startSession({ visitId, customerId, tableNumber, fullName }) {
     setSession({ visitId, customerId, tableNumber, fullName });
@@ -62,7 +84,18 @@ export function SessionProvider({ children }) {
 
   return (
     <SessionContext.Provider
-      value={{ session, startSession, endSession, cart, addToCart, updateQuantity, clearCart }}
+      value={{
+        session,
+        startSession,
+        endSession,
+        cart,
+        addToCart,
+        updateQuantity,
+        clearCart,
+        restaurant,
+        setRestaurant,
+        changeRestaurant,
+      }}
     >
       {children}
     </SessionContext.Provider>

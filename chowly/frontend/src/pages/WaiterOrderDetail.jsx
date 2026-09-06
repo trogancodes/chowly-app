@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import Header from "../components/Header.jsx";
+import NavBar from "../components/NavBar.jsx";
 import Button from "../components/Button.jsx";
 import { Loader, ErrorNote, StatusBadge } from "../components/Misc.jsx";
 import { ChefIllustration, BartenderIllustration } from "../illustrations/index.jsx";
+import { useSession } from "../context/SessionContext.jsx";
 import { api } from "../api.js";
 
 function formatNaira(amount) {
@@ -13,6 +14,7 @@ function formatNaira(amount) {
 export default function WaiterOrderDetail() {
   const { orderId } = useParams();
   const navigate = useNavigate();
+  const { restaurant } = useSession();
 
   const [order, setOrder] = useState(null);
   const [staff, setStaff] = useState({ waiters: [], chefs: [], bartenders: [] });
@@ -25,7 +27,7 @@ export default function WaiterOrderDetail() {
 
   async function load() {
     try {
-      const [orderData, staffData] = await Promise.all([api.getOrder(orderId), api.getStaff()]);
+      const [orderData, staffData] = await Promise.all([api.getOrder(orderId), api.getStaff(restaurant.id)]);
       setOrder(orderData);
       setStaff(staffData);
       setWaiterId(orderData.waiterId || "");
@@ -39,9 +41,13 @@ export default function WaiterOrderDetail() {
   }
 
   useEffect(() => {
+    if (!restaurant) {
+      navigate("/");
+      return;
+    }
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderId]);
+  }, [orderId, restaurant]);
 
   const hasFood = order?.orderItems?.some((i) => i.menuItem.categoryId === 1 || i.menuItem.category?.categoryName === "Food");
   const hasDrinks = order?.orderItems?.some((i) => i.menuItem.categoryId === 2 || i.menuItem.category?.categoryName === "Drinks");
@@ -76,6 +82,7 @@ export default function WaiterOrderDetail() {
     }
   }
 
+  if (!restaurant) return null;
   if (loading) return <Loader label="Opening order..." />;
   if (!order) return <ErrorNote message={error || "Order not found."} />;
 
@@ -83,7 +90,7 @@ export default function WaiterOrderDetail() {
 
   return (
     <div className="min-h-screen bg-cream">
-      <Header roleLabel="Waiter view" onSwitchRole={() => navigate("/")} />
+      <NavBar variant="waiter" />
       <main className="mx-auto max-w-2xl px-6 pb-24">
         <button onClick={() => navigate("/waiter")} className="text-sm text-ink/60 hover:text-terracotta">
           ← Back to the floor

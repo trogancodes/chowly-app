@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import Header from "../components/Header.jsx";
+import NavBar from "../components/NavBar.jsx";
 import Button from "../components/Button.jsx";
 import { Loader, ErrorNote, StatusBadge } from "../components/Misc.jsx";
 import { ClockIllustration, ReceiptIllustration, StarRating } from "../illustrations/index.jsx";
@@ -106,7 +106,7 @@ export default function OrderStatus() {
 
   return (
     <div className="min-h-screen bg-cream">
-      <Header roleLabel={`Table ${session.tableNumber}`} onSwitchRole={() => navigate("/")} />
+      <NavBar variant="customer" />
       <main className="mx-auto max-w-2xl px-6 pb-24">
         {loading && <Loader label="Fetching your order..." />}
         <ErrorNote message={error} />

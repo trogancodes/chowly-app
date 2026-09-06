@@ -116,6 +116,19 @@ export function DrinkIllustration({ className = "w-24 h-24" }) {
   );
 }
 
+export function StorefrontIllustration({ className = "w-16 h-16" }) {
+  return (
+    <svg viewBox="0 0 200 200" className={className}>
+      <g className="line-illustration">
+        <path d="M40 90v66h120V90" />
+        <path d="M30 90l14-34h112l14 34Z" />
+        <path d="M30 90c0 10 10 18 20 18s20-8 20-18M70 90c0 10 10 18 20 18s20-8 20-18M110 90c0 10 10 18 20 18s20-8 20-18M150 90c0 10 8 18 20 18" />
+        <path d="M84 156v-40h32v40" />
+      </g>
+    </svg>
+  );
+}
+
 export function StarRating({ value, onChange, className = "w-8 h-8" }) {
   return (
     <div className="flex gap-1">

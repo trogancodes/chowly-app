@@ -56,11 +56,17 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-// GET /api/orders - the waiter's order queue. ?status=PENDING,PREPARING filters.
+// GET /api/orders - the waiter's order queue for one restaurant.
+// ?status=PENDING,PREPARING filters by status; ?restaurantId=1 is required.
 router.get("/", async (req, res, next) => {
   try {
-    const { status } = req.query;
-    const where = status ? { status: { in: status.split(",") } } : {};
+    const { status, restaurantId } = req.query;
+    if (!restaurantId) return res.status(400).json({ error: "restaurantId query param is required." });
+
+    const where = {
+      visit: { restaurantId: parseInt(restaurantId, 10) },
+      ...(status ? { status: { in: status.split(",") } } : {}),
+    };
     const orders = await prisma.order.findMany({
       where,
       include: orderInclude,

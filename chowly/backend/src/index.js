@@ -20,7 +20,7 @@ app.get("/", (req, res) => {
 });
 app.get("/health", (req, res) => res.json({ ok: true }));
 
-app.use("/api/restaurant", restaurantRoutes);
+app.use("/api/restaurants", restaurantRoutes);
 app.use("/api/menu", menuRoutes);
 app.use("/api/staff", staffRoutes);
 app.use("/api/visits", visitRoutes);

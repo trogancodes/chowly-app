@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import Header from "../components/Header.jsx";
+import NavBar from "../components/NavBar.jsx";
 import Button from "../components/Button.jsx";
 import { Loader, ErrorNote } from "../components/Misc.jsx";
+import { FoodIcon } from "../illustrations/foodIcons.jsx";
 import { useSession } from "../context/SessionContext.jsx";
 import { api } from "../api.js";
 
@@ -13,22 +14,26 @@ function formatNaira(amount) {
 
 export default function Menu() {
   const navigate = useNavigate();
-  const { session, cart, addToCart, updateQuantity } = useSession();
+  const { session, restaurant, cart, addToCart, updateQuantity } = useSession();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!restaurant) {
+      navigate("/");
+      return;
+    }
     if (!session) {
       navigate("/customer/start");
       return;
     }
     api
-      .getMenu()
+      .getMenu(restaurant.id)
       .then(setCategories)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [session, navigate]);
+  }, [session, restaurant, navigate]);
 
   const cartCount = cart.reduce((sum, i) => sum + i.quantity, 0);
   const cartTotal = cart.reduce((sum, i) => sum + i.quantity * i.price, 0);
@@ -39,7 +44,7 @@ export default function Menu() {
 
   return (
     <div className="min-h-screen bg-cream pb-32">
-      <Header roleLabel={`Table ${session?.tableNumber}`} onSwitchRole={() => navigate("/")} />
+      <NavBar cartCount={cartCount} variant="customer" />
       <main className="mx-auto max-w-3xl px-6">
         <h1 className="text-3xl text-ink md:text-4xl">
           Hi {session?.fullName?.split(" ")[0]}, what looks good tonight?
@@ -61,17 +66,20 @@ export default function Menu() {
                     whileHover={{ y: -2 }}
                     className="flex flex-col justify-between rounded-chowly border border-clay bg-white/50 p-5"
                   >
-                    <div>
-                      <div className="flex items-start justify-between gap-3">
-                        <h3 className="font-display text-lg text-ink">{item.itemName}</h3>
-                        <span className="whitespace-nowrap font-semibold text-terracotta">
-                          {formatNaira(item.price)}
-                        </span>
+                    <div className="flex gap-4">
+                      <FoodIcon itemName={item.itemName} categoryName={category.categoryName} size={56} />
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <h3 className="font-display text-lg text-ink">{item.itemName}</h3>
+                          <span className="whitespace-nowrap font-semibold text-terracotta">
+                            {formatNaira(item.price)}
+                          </span>
+                        </div>
+                        {item.description && (
+                          <p className="mt-1 text-sm text-ink/60">{item.description}</p>
+                        )}
+                        <p className="mt-1 text-xs text-ink/40">~{item.avgPreparationTimeMins} min to prepare</p>
                       </div>
-                      {item.description && (
-                        <p className="mt-1 text-sm text-ink/60">{item.description}</p>
-                      )}
-                      <p className="mt-1 text-xs text-ink/40">~{item.avgPreparationTimeMins} min to prepare</p>
                     </div>
 
                     <div className="mt-4">

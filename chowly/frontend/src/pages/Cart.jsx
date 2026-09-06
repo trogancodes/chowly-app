@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "../components/Header.jsx";
+import NavBar from "../components/NavBar.jsx";
 import Button from "../components/Button.jsx";
 import { ErrorNote } from "../components/Misc.jsx";
 import { useSession } from "../context/SessionContext.jsx";
@@ -40,9 +40,11 @@ export default function Cart() {
     return null;
   }
 
+  const cartCount = cart.reduce((sum, i) => sum + i.quantity, 0);
+
   return (
     <div className="min-h-screen bg-cream">
-      <Header roleLabel={`Table ${session.tableNumber}`} onSwitchRole={() => navigate("/")} />
+      <NavBar cartCount={cartCount} variant="customer" />
       <main className="mx-auto max-w-2xl px-6 pb-24">
         <h1 className="text-3xl text-ink md:text-4xl">Your order so far</h1>
 

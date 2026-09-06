@@ -2,7 +2,7 @@ import React from "react";
 import { Routes, Route } from "react-router-dom";
 import { SessionProvider } from "./context/SessionContext.jsx";
 
-import Landing from "./pages/Landing.jsx";
+import RestaurantPicker from "./pages/RestaurantPicker.jsx";
 import CustomerStart from "./pages/CustomerStart.jsx";
 import Menu from "./pages/Menu.jsx";
 import Cart from "./pages/Cart.jsx";
@@ -14,7 +14,7 @@ export default function App() {
   return (
     <SessionProvider>
       <Routes>
-        <Route path="/" element={<Landing />} />
+        <Route path="/" element={<RestaurantPicker />} />
         <Route path="/customer/start" element={<CustomerStart />} />
         <Route path="/customer/menu" element={<Menu />} />
         <Route path="/customer/cart" element={<Cart />} />

@@ -1,20 +1,23 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import Header from "../components/Header.jsx";
+import NavBar from "../components/NavBar.jsx";
 import { Loader, ErrorNote, StatusBadge } from "../components/Misc.jsx";
 import { WaiterIllustration } from "../illustrations/index.jsx";
+import { useSession } from "../context/SessionContext.jsx";
 import { api } from "../api.js";
 
 export default function WaiterDashboard() {
   const navigate = useNavigate();
+  const { restaurant } = useSession();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   async function fetchOrders() {
+    if (!restaurant) return;
     try {
-      const data = await api.getWaiterOrders(["PENDING", "PREPARING", "DELAYED", "SERVED"]);
+      const data = await api.getWaiterOrders(["PENDING", "PREPARING", "DELAYED", "SERVED"], restaurant.id);
       setOrders(data);
     } catch (err) {
       setError(err.message);
@@ -24,23 +27,30 @@ export default function WaiterDashboard() {
   }
 
   useEffect(() => {
+    if (!restaurant) {
+      navigate("/");
+      return;
+    }
     fetchOrders();
     const interval = setInterval(fetchOrders, 6000);
     return () => clearInterval(interval);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurant]);
 
   const active = orders.filter((o) => o.status !== "SERVED");
   const served = orders.filter((o) => o.status === "SERVED");
 
+  if (!restaurant) return null;
+
   return (
     <div className="min-h-screen bg-cream">
-      <Header roleLabel="Waiter view" onSwitchRole={() => navigate("/")} />
+      <NavBar variant="waiter" />
       <main className="mx-auto max-w-3xl px-6 pb-24">
         <div className="flex items-center gap-4">
           <WaiterIllustration className="h-16 w-16 shrink-0" />
           <div>
             <h1 className="text-3xl text-ink md:text-4xl">The floor, right now</h1>
-            <p className="text-ink/70">Open an order to record who's preparing it.</p>
+            <p className="text-ink/70">{restaurant.name} · open an order to record who's preparing it.</p>
           </div>
         </div>
 

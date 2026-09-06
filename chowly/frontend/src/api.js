@@ -17,16 +17,18 @@ async function request(path, options = {}) {
 }
 
 export const api = {
-  getRestaurant: () => request("/restaurant"),
-  getMenu: () => request("/menu"),
-  getStaff: () => request("/staff"),
-  startVisit: (fullName, tableNumber) =>
-    request("/visits", { method: "POST", body: JSON.stringify({ fullName, tableNumber }) }),
+  getRestaurants: () => request("/restaurants"),
+  getRestaurant: (id) => request(`/restaurants/${id}`),
+  getMenu: (restaurantId) => request(`/menu?restaurantId=${restaurantId}`),
+  getStaff: (restaurantId) => request(`/staff?restaurantId=${restaurantId}`),
+  startVisit: (fullName, tableNumber, restaurantId) =>
+    request("/visits", { method: "POST", body: JSON.stringify({ fullName, tableNumber, restaurantId }) }),
   placeOrder: (visitId, items) =>
     request("/orders", { method: "POST", body: JSON.stringify({ visitId, items }) }),
   getOrdersForVisit: (visitId) => request(`/orders/visit/${visitId}`),
   getOrder: (orderId) => request(`/orders/${orderId}`),
-  getWaiterOrders: (statuses) => request(`/orders?status=${statuses.join(",")}`),
+  getWaiterOrders: (statuses, restaurantId) =>
+    request(`/orders?status=${statuses.join(",")}&restaurantId=${restaurantId}`),
   assignOrder: (orderId, payload) =>
     request(`/orders/${orderId}/assign`, { method: "PATCH", body: JSON.stringify(payload) }),
   serveOrder: (orderId) => request(`/orders/${orderId}/serve`, { method: "PATCH" }),
