@@ -1,6 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
   theme: {
     extend: {
       colors: {
@@ -9,7 +12,7 @@ export default {
           light: '#d81b60',
           dark: '#9d1245',
         },
-        appBg: '#e0f2fe', // Your requested background
+        appBg: '#e0f2fe',
         surface: '#ffffff',
       },
       boxShadow: {

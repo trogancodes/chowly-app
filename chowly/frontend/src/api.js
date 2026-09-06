@@ -1,8 +1,5 @@
 // Central place for all calls to the Chowly API.
-// Set VITE_API_URL in a .env file (locally) or in Render's environment settings
-// (in production) to point at your deployed backend, e.g.
-// VITE_API_URL=https://chowly-api.onrender.com/api
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
+const BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 async function request(path, options = {}) {
   const res = await fetch(`${BASE_URL}${path}`, {
