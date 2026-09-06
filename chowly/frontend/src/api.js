@@ -31,6 +31,8 @@ export const api = {
     request(`/orders?status=${statuses.join(",")}&restaurantId=${restaurantId}`),
   acceptOrder: (orderId, waiterId) =>
     request(`/orders/${orderId}/accept`, { method: "PATCH", body: JSON.stringify({ waiterId }) }),
+    assignOrder: (orderId, payload) =>
+    request(`/orders/${orderId}/assign`, { method: "PATCH", body: JSON.stringify(payload) }),
   assignChef: (orderId, chefId) =>
     request(`/orders/${orderId}/assign-chef`, { method: "PATCH", body: JSON.stringify({ chefId }) }),
   assignBartender: (orderId, bartenderId) =>
