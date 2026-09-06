@@ -133,7 +133,7 @@ model Order {
   orderItems            OrderItem[]
   payment               Payment?
   feedbacks             Feedback[]
-  updatedAt             DateTime      @updatedAt
+   updatedAt DateTime @default(now()) @updatedAt
 }
 
 model OrderItem {
