@@ -2,28 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  body {
-    @apply bg-cream text-ink font-body antialiased;
-  }
-  h1, h2, h3, h4 {
-    @apply font-display;
-  }
-  ::selection {
-    @apply bg-terracotta text-cream;
-  }
-  :focus-visible {
-    outline: 2px solid #C1502E;
-    outline-offset: 2px;
-  }
+body {
+  margin: 0;
+  background-color: #e0f2fe;
+  color: #1e293b;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-@layer utilities {
-  .line-illustration {
-    stroke: #C1502E;
-    fill: none;
-    stroke-width: 1.5;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
+/* Custom framer-style scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(194, 24, 91, 0.2);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(194, 24, 91, 0.4);
 }

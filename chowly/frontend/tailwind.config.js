@@ -1,25 +1,30 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./index.html", "./src/**/*.{js,jsx}"],
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
-        cream: "#F7EFE1",
-        "cream-dark": "#F0E4CE",
-        terracotta: "#C1502E",
-        "terracotta-dark": "#A8421F",
-        clay: "#E4D3B8",
-        ink: "#3A2A1C",
-        sage: "#748C69",
+        brand: {
+          50: '#fdf2f8',
+          100: '#fce7f3',
+          500: '#e11d48',
+          DEFAULT: '#c2185b', // Raspberry
+          dark: '#9d1245',
+          light: '#d81b60',
+        },
+        appBg: '#e0f2fe', // Soft Sky/Blue background from requirements
+        surface: '#ffffff',
       },
-      fontFamily: {
-        display: ["Fraunces", "Georgia", "serif"],
-        body: ["Inter", "system-ui", "sans-serif"],
+      boxShadow: {
+        'framer': '0 20px 50px -12px rgba(194, 24, 91, 0.08), 0 8px 24px -8px rgba(0, 0, 0, 0.04)',
+        'framer-modal': '0 25px 60px -15px rgba(0, 0, 0, 0.15)',
+        'glow': '0 0 20px rgba(194, 24, 91, 0.25)',
       },
       borderRadius: {
-        chowly: "1.75rem",
-      },
+        '3xl': '1.75rem',
+        '4xl': '2.25rem',
+      }
     },
   },
   plugins: [],
-};
+}
