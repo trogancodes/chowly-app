@@ -83,3 +83,11 @@ export function FoodIcon({ itemName, categoryName, size = 56 }) {
   const render = ICONS[key];
   return render({ color, size });
 }
+
+// Renders a specific icon by its key directly (bypassing the itemName keyword match) —
+// used by the waiting-room game, which needs a fixed, known set of icons to pair up.
+export function FoodIconByKey({ iconKey, size = 56 }) {
+  const color = TILE_COLORS[iconKey];
+  const render = ICONS[iconKey];
+  return render({ color, size });
+}
