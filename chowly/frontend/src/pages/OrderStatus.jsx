@@ -5,6 +5,7 @@ import NavBar from "../components/NavBar.jsx";
 import Button from "../components/Button.jsx";
 import { Loader, ErrorNote, StatusBadge } from "../components/Misc.jsx";
 import { ReceiptIllustration, StarRating } from "../illustrations/index.jsx";
+import MemoryGame from "../components/MemoryGame.jsx";
 import { useSession } from "../context/SessionContext.jsx";
 import { api } from "../api.js";
 
@@ -265,6 +266,16 @@ export default function OrderStatus() {
 
             {feedbackSent && (
               <p className="mt-6 text-sm text-sage">Thanks — your feedback has been recorded.</p>
+            )}
+
+            {/* Something to do while waiting */}
+            {!["SERVED", "COMPLETED"].includes(order.status) && (
+              <details className="mt-8 rounded-chowly border border-clay bg-cream-dark/50 p-6 [&_summary]:cursor-pointer">
+                <summary className="font-display text-lg text-ink">🎮 Play while you wait</summary>
+                <div className="mt-4">
+                  <MemoryGame />
+                </div>
+              </details>
             )}
 
             {/* Payment */}
