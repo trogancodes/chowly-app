@@ -8,7 +8,7 @@ import { api } from "../api.js";
 
 function PlateIcon() {
   return (
-    <svg viewBox="0 0 100 100" className="h-10 w-10" fill="none" stroke="#F7EFE1" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 100 100" className="h-10 w-10" fill="none" stroke="#111827" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="50" cy="50" r="30" />
       <circle cx="50" cy="50" r="16" />
     </svg>
@@ -61,7 +61,7 @@ export default function CustomerStart() {
           Browse the menu, place your order, track it live, and pay — no app download, no account required.
         </p>
 
-        <div className="mt-8 w-full rounded-chowly border border-clay bg-white/60 p-8">
+        <div className="mt-8 w-full rounded-chowly border border-clay bg-cream-dark/60 p-8">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-terracotta">
             <PlateIcon />
           </div>
@@ -77,7 +77,7 @@ export default function CustomerStart() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="e.g. Ada Obi"
-                className="rounded-2xl border border-clay bg-white/60 px-4 py-3 outline-none focus:border-terracotta"
+                className="rounded-2xl border border-clay bg-cream-dark/60 px-4 py-3 outline-none focus:border-terracotta"
               />
             </label>
             <label className="flex flex-col gap-2">
@@ -88,7 +88,7 @@ export default function CustomerStart() {
                 value={tableNumber}
                 onChange={(e) => setTableNumber(e.target.value)}
                 placeholder="e.g. 12"
-                className="rounded-2xl border border-clay bg-white/60 px-4 py-3 outline-none focus:border-terracotta"
+                className="rounded-2xl border border-clay bg-cream-dark/60 px-4 py-3 outline-none focus:border-terracotta"
               />
             </label>
 

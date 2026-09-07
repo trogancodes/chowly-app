@@ -64,7 +64,7 @@ export default function Menu() {
                   <motion.div
                     key={item.id}
                     whileHover={{ y: -2 }}
-                    className="flex flex-col justify-between rounded-chowly border border-clay bg-white/50 p-5"
+                    className="flex flex-col justify-between rounded-chowly border border-clay bg-cream-dark/50 p-5"
                   >
                     <div className="flex gap-4">
                       <FoodIcon itemName={item.itemName} categoryName={category.categoryName} size={56} />

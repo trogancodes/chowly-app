@@ -48,7 +48,7 @@ export default function Cart() {
         <h1 className="text-3xl text-ink md:text-4xl">Your order so far</h1>
 
         {cart.length === 0 ? (
-          <div className="mt-10 rounded-chowly border border-clay bg-white/50 p-8 text-center">
+          <div className="mt-10 rounded-chowly border border-clay bg-cream-dark/50 p-8 text-center">
             <p className="text-ink/70">Your cart is empty.</p>
             <Button variant="outline" className="mt-4" onClick={() => navigate("/customer/menu")}>
               Back to the menu
@@ -56,7 +56,7 @@ export default function Cart() {
           </div>
         ) : (
           <>
-            <div className="mt-8 divide-y divide-clay rounded-chowly border border-clay bg-white/50">
+            <div className="mt-8 divide-y divide-clay rounded-chowly border border-clay bg-cream-dark/50">
               {cart.map((item) => (
                 <div key={item.menuItemId} className="flex items-center justify-between px-5 py-4">
                   <div>

@@ -81,7 +81,7 @@ function OrderTracker({ order }) {
   const currentIndex = steps.findIndex((s) => !s.done);
 
   return (
-    <div className="mt-6 rounded-chowly border border-clay bg-white/50 p-6">
+    <div className="mt-6 rounded-chowly border border-clay bg-cream-dark/50 p-6">
       {steps.map((step, i) => (
         <div key={step.key} className="flex gap-4">
           <div className="flex flex-col items-center">
@@ -209,7 +209,7 @@ export default function OrderStatus() {
 
             <OrderTracker order={order} />
 
-            <div className="mt-6 divide-y divide-clay rounded-chowly border border-clay bg-white/50">
+            <div className="mt-6 divide-y divide-clay rounded-chowly border border-clay bg-cream-dark/50">
               {order.orderItems.map((item) => (
                 <div key={item.id} className="flex items-center justify-between px-5 py-4">
                   <span className="text-ink">
@@ -249,7 +249,7 @@ export default function OrderStatus() {
                     value={complaintText}
                     onChange={(e) => setComplaintText(e.target.value)}
                     placeholder="What went wrong?"
-                    className="mt-3 w-full rounded-2xl border border-clay bg-white/70 px-4 py-3 outline-none focus:border-terracotta"
+                    className="mt-3 w-full rounded-2xl border border-clay bg-cream-dark/70 px-4 py-3 outline-none focus:border-terracotta"
                     rows={3}
                   />
                   <div className="mt-3 flex items-center gap-3">
@@ -272,7 +272,7 @@ export default function OrderStatus() {
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-8 rounded-chowly border border-clay bg-white/50 p-6"
+                className="mt-8 rounded-chowly border border-clay bg-cream-dark/50 p-6"
               >
                 <div className="flex items-center gap-4">
                   <ReceiptIllustration className="h-16 w-16 shrink-0" />

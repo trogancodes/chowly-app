@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { motion } from "framer-motion";
 import NavBar from "../components/NavBar.jsx";
 import Button from "../components/Button.jsx";
 import { Loader, ErrorNote, StatusBadge } from "../components/Misc.jsx";
@@ -46,47 +47,36 @@ export default function WaiterOrderDetail() {
       return;
     }
     load();
+    const interval = setInterval(load, 6000);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId, restaurant]);
-
-  const hasFood = order?.orderItems?.some((i) => i.menuItem.categoryId === 1 || i.menuItem.category?.categoryName === "Food");
-  const hasDrinks = order?.orderItems?.some((i) => i.menuItem.categoryId === 2 || i.menuItem.category?.categoryName === "Drinks");
-
-  async function handleAssign() {
-    setSaving(true);
-    setError("");
-    try {
-      const updated = await api.assignOrder(order.id, {
-        waiterId: waiterId ? Number(waiterId) : undefined,
-        chefId: chefId ? Number(chefId) : undefined,
-        bartenderId: bartenderId ? Number(bartenderId) : undefined,
-      });
-      setOrder(updated);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleServe() {
-    setSaving(true);
-    setError("");
-    try {
-      const updated = await api.serveOrder(order.id);
-      setOrder(updated);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  }
 
   if (!restaurant) return null;
   if (loading) return <Loader label="Opening order..." />;
   if (!order) return <ErrorNote message={error || "Order not found."} />;
 
+  const hasFood = order.orderItems.some((i) => i.menuItem.category?.categoryName === "Food");
+  const hasDrinks = order.orderItems.some((i) => i.menuItem.category?.categoryName === "Drinks");
   const total = order.orderItems.reduce((sum, i) => sum + i.subTotal, 0);
+
+  const isPending = order.status === "PENDING";
+  const isAccepted = order.status === "ACCEPTED" || order.status === "PREPARING";
+  const isServedOrLater = ["SERVED", "COMPLETED"].includes(order.status);
+  const isCompleted = order.status === "COMPLETED";
+
+  async function runAction(action) {
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await action();
+      setOrder(updated);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-cream">
@@ -106,7 +96,7 @@ export default function WaiterOrderDetail() {
           {order.visit.customer.fullName} · placed {new Date(order.orderTime).toLocaleTimeString()}
         </p>
 
-        <div className="mt-6 divide-y divide-clay rounded-chowly border border-clay bg-white/50">
+        <div className="mt-6 divide-y divide-clay rounded-chowly border border-clay bg-cream-dark/50">
           {order.orderItems.map((item) => (
             <div key={item.id} className="flex items-center justify-between px-5 py-4">
               <span className="text-ink">
@@ -122,82 +112,141 @@ export default function WaiterOrderDetail() {
         </div>
 
         {order.feedbacks?.length > 0 && (
-          <div className="mt-6 rounded-chowly border border-red-200 bg-red-50 p-5">
-            <p className="font-semibold text-red-700">Customer flagged a delay</p>
+          <div className="mt-6 rounded-chowly border border-red-500/30 bg-red-500/10 p-5">
+            <p className="font-semibold text-red-400">Customer flagged a delay</p>
             {order.feedbacks.map((f) => (
-              <p key={f.id} className="mt-1 text-sm text-red-700/80">
+              <p key={f.id} className="mt-1 text-sm text-red-400/80">
                 "{f.complaintText}" — rated {f.rating}/5
               </p>
             ))}
           </div>
         )}
 
-        <div className="mt-8 grid gap-6 sm:grid-cols-2">
-          <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-ink/80">
-              <ChefIllustration className="h-8 w-8" /> Waiter on this order
-            </label>
+        <ErrorNote message={error} />
+
+        {/* Step 1: Accept the order */}
+        {isPending && (
+          <div className="mt-8 rounded-chowly border border-clay bg-cream-dark/50 p-6">
+            <h2 className="font-display text-lg text-ink">Step 1 · Accept this order</h2>
             <select
               value={waiterId}
               onChange={(e) => setWaiterId(e.target.value)}
-              className="mt-2 w-full rounded-2xl border border-clay bg-white/70 px-4 py-3 outline-none focus:border-terracotta"
+              className="mt-3 w-full rounded-2xl border border-clay bg-cream-dark/70 px-4 py-3 outline-none focus:border-terracotta"
             >
               <option value="">Select a waiter</option>
               {staff.waiters.map((w) => (
                 <option key={w.id} value={w.id}>{w.fullName}</option>
               ))}
             </select>
-          </div>
-
-          {hasFood !== false && (
-            <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-ink/80">
-                <ChefIllustration className="h-8 w-8" /> Chef who prepared it
-              </label>
-              <select
-                value={chefId}
-                onChange={(e) => setChefId(e.target.value)}
-                className="mt-2 w-full rounded-2xl border border-clay bg-white/70 px-4 py-3 outline-none focus:border-terracotta"
-              >
-                <option value="">Select a chef</option>
-                {staff.chefs.map((c) => (
-                  <option key={c.id} value={c.id}>{c.fullName}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-ink/80">
-              <BartenderIllustration className="h-8 w-8" /> Bartender who prepared it
-            </label>
-            <select
-              value={bartenderId}
-              onChange={(e) => setBartenderId(e.target.value)}
-              className="mt-2 w-full rounded-2xl border border-clay bg-white/70 px-4 py-3 outline-none focus:border-terracotta"
+            <Button
+              className="mt-4 w-full"
+              disabled={saving || !waiterId}
+              onClick={() => runAction(() => api.acceptOrder(order.id, Number(waiterId)))}
             >
-              <option value="">Select a bartender</option>
-              {staff.bartenders.map((b) => (
-                <option key={b.id} value={b.id}>{b.fullName}</option>
-              ))}
-            </select>
+              {saving ? "Accepting..." : "Accept order"}
+            </Button>
           </div>
-        </div>
+        )}
 
-        <ErrorNote message={error} />
+        {/* Step 2: Assign chef / bartender */}
+        {(isAccepted || isServedOrLater) && (
+          <div className="mt-8 grid gap-6 sm:grid-cols-2">
+            {hasFood && (
+              <div className="rounded-chowly border border-clay bg-cream-dark/50 p-5">
+                <label className="flex items-center gap-2 text-sm font-medium text-ink/80">
+                  <ChefIllustration className="h-8 w-8" /> Chef preparing the food
+                </label>
+                <select
+                  value={chefId}
+                  onChange={(e) => setChefId(e.target.value)}
+                  disabled={isServedOrLater}
+                  className="mt-2 w-full rounded-2xl border border-clay bg-cream-dark/70 px-4 py-3 outline-none focus:border-terracotta disabled:opacity-60"
+                >
+                  <option value="">Select a chef</option>
+                  {staff.chefs.map((c) => (
+                    <option key={c.id} value={c.id}>{c.fullName}</option>
+                  ))}
+                </select>
+                {!isServedOrLater && (
+                  <Button
+                    variant="outline"
+                    className="mt-3 w-full"
+                    disabled={saving || !chefId || Number(chefId) === order.chefId}
+                    onClick={() => runAction(() => api.assignChef(order.id, Number(chefId)))}
+                  >
+                    {order.chefId ? "Update chef" : "Assign chef"}
+                  </Button>
+                )}
+              </div>
+            )}
 
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <Button variant="outline" onClick={handleAssign} disabled={saving} className="flex-1">
-            {saving ? "Saving..." : "Save assignment"}
-          </Button>
+            {hasDrinks && (
+              <div className="rounded-chowly border border-clay bg-cream-dark/50 p-5">
+                <label className="flex items-center gap-2 text-sm font-medium text-ink/80">
+                  <BartenderIllustration className="h-8 w-8" /> Bartender preparing the drinks
+                </label>
+                <select
+                  value={bartenderId}
+                  onChange={(e) => setBartenderId(e.target.value)}
+                  disabled={isServedOrLater}
+                  className="mt-2 w-full rounded-2xl border border-clay bg-cream-dark/70 px-4 py-3 outline-none focus:border-terracotta disabled:opacity-60"
+                >
+                  <option value="">Select a bartender</option>
+                  {staff.bartenders.map((b) => (
+                    <option key={b.id} value={b.id}>{b.fullName}</option>
+                  ))}
+                </select>
+                {!isServedOrLater && (
+                  <Button
+                    variant="outline"
+                    className="mt-3 w-full"
+                    disabled={saving || !bartenderId || Number(bartenderId) === order.bartenderId}
+                    onClick={() => runAction(() => api.assignBartender(order.id, Number(bartenderId)))}
+                  >
+                    {order.bartenderId ? "Update bartender" : "Assign bartender"}
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Step 3: Mark served */}
+        {isAccepted && (
           <Button
-            onClick={handleServe}
-            disabled={saving || order.status === "SERVED"}
-            className="flex-1"
+            className="mt-8 w-full"
+            disabled={saving}
+            onClick={() => runAction(() => api.serveOrder(order.id))}
           >
-            {order.status === "SERVED" ? "Already served" : "Mark as served"}
+            {saving ? "Saving..." : "Mark as served"}
           </Button>
-        </div>
+        )}
+
+        {/* Step 4: Payment status + complete */}
+        {isServedOrLater && (
+          <div className="mt-8 rounded-chowly border border-clay bg-cream-dark/50 p-6">
+            {order.payment ? (
+              <p className="rounded-2xl bg-sage/10 px-4 py-3 text-sm font-medium text-sage">
+                💰 Paid {formatNaira(order.payment.amount)} via {order.payment.paymentMethod} — ready to close out.
+              </p>
+            ) : (
+              <p className="rounded-2xl bg-clay/40 px-4 py-3 text-sm text-ink/70">
+                ⏳ Waiting for the customer to pay on their device.
+              </p>
+            )}
+            {!isCompleted ? (
+              <Button
+                className="mt-4 w-full"
+                disabled={saving}
+                onClick={() => runAction(() => api.completeOrder(order.id))}
+              >
+                {saving ? "Closing out..." : "Complete order"}
+              </Button>
+            ) : (
+              <p className="mt-4 text-center text-sm text-ink/50">✅ This table has been closed out.</p>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );

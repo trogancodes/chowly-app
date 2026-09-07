@@ -53,7 +53,7 @@ export default function RestaurantPicker() {
               key={r.id}
               whileHover={{ y: -3 }}
               onClick={() => choose(r)}
-              className="flex flex-col items-center rounded-chowly border border-clay bg-white/50 p-6 text-center"
+              className="flex flex-col items-center rounded-chowly border border-clay bg-cream-dark/50 p-6 text-center"
             >
               <StorefrontIllustration className="h-16 w-16" />
               <h2 className="mt-3 font-display text-xl text-ink">{r.name}</h2>

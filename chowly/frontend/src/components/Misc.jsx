@@ -24,7 +24,7 @@ const STATUS_STYLES = {
   PREPARING: "bg-terracotta/15 text-terracotta-dark",
   SERVED: "bg-sage/20 text-sage",
   COMPLETED: "bg-ink/10 text-ink/60",
-  DELAYED: "bg-red-100 text-red-700",
+  DELAYED: "bg-red-500/15 text-red-400",
 };
 
 const STATUS_LABELS = {
