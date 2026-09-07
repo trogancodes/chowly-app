@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import React, { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import NavBar from "../components/NavBar.jsx";
+import Button from "../components/Button.jsx";
 import { Loader, ErrorNote, StatusBadge } from "../components/Misc.jsx";
-import { WaiterIllustration } from "../illustrations/index.jsx";
+import { ReceiptIllustration, StarRating } from "../illustrations/index.jsx";
+import MemoryGame from "../components/MemoryGame.jsx";
 import { useSession } from "../context/SessionContext.jsx";
 import { api } from "../api.js";
 
@@ -11,146 +13,332 @@ function formatNaira(amount) {
   return `₦${amount.toLocaleString()}`;
 }
 
-// Orders are sorted so the ones needing action float to the top: a brand new order
-// (PENDING) or one flagged DELAYED needs a waiter right now; a SERVED-and-paid order
-// is the next most urgent (the customer is sitting there waiting to be let go).
-const URGENCY = { PENDING: 0, DELAYED: 1, ACCEPTED: 2, PREPARING: 3, SERVED: 4 };
+// A small filled/outline circle used in the tracker timeline.
+function StepDot({ done, current }) {
+  return (
+    <div
+      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 ${
+        done
+          ? "border-terracotta bg-terracotta text-cream"
+          : current
+          ? "border-terracotta text-terracotta"
+          : "border-clay text-ink/30"
+      }`}
+    >
+      {done ? (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
+      ) : (
+        <span className="h-2 w-2 rounded-full bg-current" />
+      )}
+    </div>
+  );
+}
 
-export default function WaiterDashboard() {
+function OrderTracker({ order }) {
+  const hasFood = order.orderItems.some((i) => i.menuItem.category?.categoryName === "Food");
+  const hasDrinks = order.orderItems.some((i) => i.menuItem.category?.categoryName === "Drinks");
+  const notDelayed = order.status !== "DELAYED";
+
+  const steps = [
+    { key: "placed", label: "Order placed", detail: null, done: true },
+    {
+      key: "accepted",
+      label: "Accepted by your waiter",
+      detail: order.waiter ? order.waiter.fullName : null,
+      done: notDelayed && !["PENDING"].includes(order.status),
+    },
+  ];
+  if (hasFood) {
+    steps.push({
+      key: "chef",
+      label: "Chef preparing your food",
+      detail: order.chef ? `${order.chef.fullName} · ~${order.estimatedWaitTimeMins} min` : null,
+      done: !!order.chefId,
+    });
+  }
+  if (hasDrinks) {
+    steps.push({
+      key: "bartender",
+      label: "Bartender preparing your drinks",
+      detail: order.bartender ? order.bartender.fullName : null,
+      done: !!order.bartenderId,
+    });
+  }
+  steps.push({
+    key: "served",
+    label: "Served to your table",
+    detail: null,
+    done: notDelayed && ["SERVED", "COMPLETED"].includes(order.status),
+  });
+  steps.push({
+    key: "paid",
+    label: "Payment received",
+    detail: order.payment ? `${formatNaira(order.payment.amount)} via ${order.payment.paymentMethod}` : null,
+    done: !!order.payment,
+  });
+
+  const currentIndex = steps.findIndex((s) => !s.done);
+
+  return (
+    <div className="mt-6 rounded-chowly border border-clay bg-cream-dark/50 p-6">
+      {steps.map((step, i) => (
+        <div key={step.key} className="flex gap-4">
+          <div className="flex flex-col items-center">
+            <StepDot done={step.done} current={i === currentIndex} />
+            {i < steps.length - 1 && (
+              <div className={`w-0.5 flex-1 ${step.done ? "bg-terracotta" : "bg-clay"}`} style={{ minHeight: 28 }} />
+            )}
+          </div>
+          <div className={`pb-6 ${step.done ? "text-ink" : "text-ink/40"}`}>
+            <p className="font-medium">{step.label}</p>
+            {step.detail && <p className="text-sm text-ink/60">{step.detail}</p>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function OrderStatus() {
+  const { orderId } = useParams();
   const navigate = useNavigate();
-  const { restaurant } = useSession();
-  const [orders, setOrders] = useState([]);
+  const { session, endSession } = useSession();
+
+  const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function fetchOrders() {
-    if (!restaurant) return;
+  const [complaintText, setComplaintText] = useState("");
+  const [rating, setRating] = useState(0);
+  const [feedbackSent, setFeedbackSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [paymentMethod, setPaymentMethod] = useState("Card");
+  const [paid, setPaid] = useState(null);
+
+  const fetchOrder = useCallback(async () => {
     try {
-      const data = await api.getWaiterOrders(
-        ["PENDING", "ACCEPTED", "PREPARING", "DELAYED", "SERVED", "COMPLETED"],
-        restaurant.id
-      );
-      setOrders(data);
+      const data = await api.getOrder(orderId);
+      setOrder(data);
+      if (data.payment) setPaid(data.payment);
+      if (data.feedbacks?.length) setFeedbackSent(true);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }
+  }, [orderId]);
 
   useEffect(() => {
-    if (!restaurant) {
-      navigate("/");
+    fetchOrder();
+    const interval = setInterval(fetchOrder, 5000);
+    return () => clearInterval(interval);
+  }, [fetchOrder]);
+
+  async function handleFlagDelay() {
+    try {
+      const updated = await api.delayOrder(orderId);
+      setOrder(updated);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleSubmitFeedback(e) {
+    e.preventDefault();
+    if (!complaintText.trim() || rating === 0) {
+      setError("Please add a note and a rating.");
       return;
     }
-    fetchOrders();
-    const interval = setInterval(fetchOrders, 6000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [restaurant]);
+    setSubmitting(true);
+    setError("");
+    try {
+      await api.submitFeedback({
+        orderId: order.id,
+        customerId: session.customerId,
+        complaintText: complaintText.trim(),
+        rating,
+      });
+      setFeedbackSent(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
-  if (!restaurant) return null;
+  async function handlePay() {
+    setSubmitting(true);
+    setError("");
+    try {
+      const payment = await api.submitPayment({
+        orderId: order.id,
+        customerId: session.customerId,
+        paymentMethod,
+      });
+      setPaid(payment);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
-  const active = orders
-    .filter((o) => o.status !== "COMPLETED")
-    .sort((a, b) => {
-      const paidDiff = (b.status === "SERVED" && !!b.payment ? 1 : 0) - (a.status === "SERVED" && !!a.payment ? 1 : 0);
-      if (paidDiff !== 0) return paidDiff;
-      return (URGENCY[a.status] ?? 9) - (URGENCY[b.status] ?? 9);
-    });
-  const completed = orders.filter((o) => o.status === "COMPLETED");
+  if (!session) {
+    navigate("/customer/start");
+    return null;
+  }
+
+  const total = order?.orderItems?.reduce((sum, i) => sum + i.subTotal, 0) || 0;
+  const canFlagDelay = order && !["SERVED", "COMPLETED", "DELAYED"].includes(order.status);
 
   return (
     <div className="min-h-screen bg-cream">
-      <NavBar variant="waiter" />
-      <main className="mx-auto max-w-4xl px-6 pb-24">
-        <div className="flex items-center gap-4">
-          <WaiterIllustration className="h-16 w-16 shrink-0" />
-          <div>
-            <h1 className="text-3xl text-ink md:text-4xl">The floor, right now</h1>
-            <p className="text-ink/70">{restaurant.name} · click an order to open it.</p>
-          </div>
-        </div>
-
-        {loading && <Loader label="Checking the queue..." />}
+      <NavBar variant="customer" />
+      <main className="mx-auto max-w-2xl px-6 pb-24">
+        {loading && <Loader label="Fetching your order..." />}
         <ErrorNote message={error} />
 
-        {!loading && active.length === 0 && (
-          <p className="mt-10 text-ink/60">No active orders right now. Nice and quiet.</p>
-        )}
+        {order && !paid && (
+          <>
+            <div className="flex items-center justify-between">
+              <h1 className="text-3xl text-ink md:text-4xl">Order #{order.id}</h1>
+              <StatusBadge status={order.status} />
+            </div>
 
-        {active.length > 0 && (
-          <div className="mt-8 overflow-hidden rounded-chowly border border-clay bg-cream-dark/50">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-clay bg-cream-dark/60 text-xs uppercase tracking-wide text-ink/50">
-                  <th className="px-5 py-3">Order</th>
-                  <th className="px-5 py-3">Table</th>
-                  <th className="px-5 py-3">Customer</th>
-                  <th className="px-5 py-3">Items</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3">Payment</th>
-                </tr>
-              </thead>
-              <tbody>
-                {active.map((order) => {
-                  const readyToClose = order.status === "SERVED" && !!order.payment;
-                  return (
-                    <motion.tr
-                      key={order.id}
-                      whileHover={{ backgroundColor: "rgba(193,80,46,0.05)" }}
-                      onClick={() => navigate(`/waiter/order/${order.id}`)}
-                      className={`cursor-pointer border-b border-clay/60 last:border-0 ${
-                        readyToClose ? "bg-sage/10" : order.status === "DELAYED" ? "bg-red-500/10" : ""
+            <OrderTracker order={order} />
+
+            <div className="mt-6 divide-y divide-clay rounded-chowly border border-clay bg-cream-dark/50">
+              {order.orderItems.map((item) => (
+                <div key={item.id} className="flex items-center justify-between px-5 py-4">
+                  <span className="text-ink">
+                    {item.quantity} × {item.menuItem.itemName}
+                  </span>
+                  <span className="font-semibold text-ink">{formatNaira(item.subTotal)}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between px-5 py-4">
+                <span className="font-semibold text-ink">Total</span>
+                <span className="font-display text-xl text-terracotta">{formatNaira(total)}</span>
+              </div>
+            </div>
+
+            {/* Delay + feedback */}
+            {canFlagDelay && !feedbackSent && (
+              <button
+                onClick={handleFlagDelay}
+                className="mt-6 text-sm text-terracotta underline decoration-terracotta/40 underline-offset-4"
+              >
+                This is taking longer than expected
+              </button>
+            )}
+
+            <AnimatePresence>
+              {order.status === "DELAYED" && !feedbackSent && (
+                <motion.form
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  onSubmit={handleSubmitFeedback}
+                  className="mt-6 rounded-chowly border border-terracotta/30 bg-terracotta/5 p-5"
+                >
+                  <p className="font-display text-lg text-terracotta-dark">
+                    Sorry about the wait. Tell us what happened.
+                  </p>
+                  <textarea
+                    value={complaintText}
+                    onChange={(e) => setComplaintText(e.target.value)}
+                    placeholder="What went wrong?"
+                    className="mt-3 w-full rounded-2xl border border-clay bg-cream-dark/70 px-4 py-3 outline-none focus:border-terracotta"
+                    rows={3}
+                  />
+                  <div className="mt-3 flex items-center gap-3">
+                    <span className="text-sm text-ink/70">Rate this order</span>
+                    <StarRating value={rating} onChange={setRating} className="w-6 h-6" />
+                  </div>
+                  <Button type="submit" disabled={submitting} className="mt-4">
+                    {submitting ? "Sending..." : "Submit feedback"}
+                  </Button>
+                </motion.form>
+              )}
+            </AnimatePresence>
+
+            {feedbackSent && (
+              <p className="mt-6 text-sm text-sage">Thanks — your feedback has been recorded.</p>
+            )}
+
+            {/* Something to do while waiting */}
+            {!["SERVED", "COMPLETED"].includes(order.status) && (
+              <details className="mt-8 rounded-chowly border border-clay bg-cream-dark/50 p-6 [&_summary]:cursor-pointer">
+                <summary className="font-display text-lg text-ink">🎮 Play while you wait</summary>
+                <div className="mt-4">
+                  <MemoryGame />
+                </div>
+              </details>
+            )}
+
+            {/* Payment */}
+            {(order.status === "SERVED" || order.status === "COMPLETED") && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-8 rounded-chowly border border-clay bg-cream-dark/50 p-6"
+              >
+                <div className="flex items-center gap-4">
+                  <ReceiptIllustration className="h-16 w-16 shrink-0" />
+                  <div>
+                    <h2 className="font-display text-xl text-ink">Ready to settle up?</h2>
+                    <p className="text-sm text-ink/60">This is a pretend payment for the assignment demo.</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex gap-2">
+                  {["Card", "Cash", "Transfer"].map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setPaymentMethod(m)}
+                      className={`rounded-full border px-4 py-2 text-sm ${
+                        paymentMethod === m
+                          ? "border-terracotta bg-terracotta text-cream"
+                          : "border-clay text-ink/70"
                       }`}
                     >
-                      <td className="px-5 py-4 font-semibold text-ink">#{order.id}</td>
-                      <td className="px-5 py-4 text-ink/80">Table {order.visit.tableNumber}</td>
-                      <td className="px-5 py-4 text-ink/80">{order.visit.customer.fullName}</td>
-                      <td className="px-5 py-4 text-ink/60">
-                        {order.orderItems.length} item{order.orderItems.length > 1 ? "s" : ""} ·{" "}
-                        {formatNaira(order.orderItems.reduce((sum, i) => sum + i.subTotal, 0))}
-                      </td>
-                      <td className="px-5 py-4">
-                        <StatusBadge status={order.status} />
-                      </td>
-                      <td className="px-5 py-4">
-                        {order.payment ? (
-                          <span className="rounded-full bg-sage/20 px-3 py-1 text-xs font-semibold text-sage">
-                            💰 Paid
-                          </span>
-                        ) : order.status === "SERVED" ? (
-                          <span className="rounded-full bg-clay/50 px-3 py-1 text-xs text-ink/60">Awaiting</span>
-                        ) : (
-                          <span className="text-ink/30">—</span>
-                        )}
-                      </td>
-                    </motion.tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      {m}
+                    </button>
+                  ))}
+                </div>
+
+                <Button onClick={handlePay} disabled={submitting} className="mt-5 w-full">
+                  {submitting ? "Processing (pretend)..." : `Pay ${formatNaira(total)} (pretend)`}
+                </Button>
+              </motion.div>
+            )}
+          </>
         )}
 
-        {completed.length > 0 && (
-          <>
-            <h2 className="mt-12 text-xl text-ink/70">Completed tonight</h2>
-            <div className="mt-4 overflow-hidden rounded-chowly border border-clay/60 bg-cream-dark/30">
-              <table className="w-full text-left text-sm opacity-70">
-                <tbody>
-                  {completed.map((order) => (
-                    <tr key={order.id} className="border-b border-clay/40 last:border-0">
-                      <td className="px-5 py-3 font-medium text-ink">#{order.id}</td>
-                      <td className="px-5 py-3 text-ink/70">Table {order.visit.tableNumber}</td>
-                      <td className="px-5 py-3 text-ink/70">{order.visit.customer.fullName}</td>
-                      <td className="px-5 py-3"><StatusBadge status={order.status} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
+        {paid && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-10 flex flex-col items-center text-center"
+          >
+            <ReceiptIllustration className="h-24 w-24" />
+            <h1 className="mt-2 text-3xl text-ink">Payment recorded — pretend, of course</h1>
+            <p className="mt-2 text-ink/70">
+              {formatNaira(paid.amount)} via {paid.paymentMethod}. Your waiter has been notified and will
+              wrap up your table shortly. Thanks for dining with us tonight.
+            </p>
+            <Button
+              className="mt-8"
+              onClick={() => {
+                endSession();
+                navigate("/");
+              }}
+            >
+              Start a new visit
+            </Button>
+          </motion.div>
         )}
       </main>
     </div>
